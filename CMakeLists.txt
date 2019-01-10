@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp infuse_msgs std_msgs message_gene
 
 find_package(infuse_asn1_types REQUIRED)
 find_package(infuse_asn1_conversions REQUIRED)
+find_package(infuse_pom_base REQUIRED)
 find_package(PCL 1.7.1 REQUIRED )
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem timer program_options)
@@ -39,6 +40,7 @@ add_library(infuse_debug_tools
 	src/ImagePairExtractor.cpp
     src/ImagePairMatcher.cpp
 	src/GpsExtractor.cpp
+    src/OdometryExtractor.cpp
 )
 target_include_directories(infuse_debug_tools
 	PUBLIC
@@ -56,7 +58,9 @@ target_link_libraries(infuse_debug_tools
 	${OpenCV_LIBS}
 	infuse_asn1_types::infuse_asn1_types
 	infuse_asn1_conversions::base_conversions
+	infuse_asn1_conversions::pom_conversions
 	infuse_asn1_conversions::pcl_conversions
+    infuse_pom_base
 )
 
 ## asn1_bitstream_to_pcd_converter
@@ -195,4 +199,12 @@ target_link_libraries(asn1_bitstream_to_disparity_image_node
         infuse_asn1_types::infuse_asn1_types
         infuse_asn1_conversions::base_conversions
         ${OpenCV_LIBRARIES}
+)
+
+# export odometry
+add_executable(odometry_extractor
+    src/odometry_extractor.cpp
+)
+target_link_libraries(odometry_extractor
+	infuse_debug_tools
 )
