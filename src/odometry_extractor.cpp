@@ -5,8 +5,8 @@ using namespace std;
 
 void usage()
 {
-    cout << "Bad arguments" << endl;
-    throw invalid_argument("Bad argument");
+    cout << "odometry_extractor basePath ouputPath inputTopic outputDeltaTopic outputAttitudeTopic" << endl;
+    throw invalid_argument("Bad arguments");
 }
 
 int main(int argc, char** argv)
