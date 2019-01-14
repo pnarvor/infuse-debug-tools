@@ -202,9 +202,9 @@ target_link_libraries(asn1_bitstream_to_disparity_image_node
 )
 
 # export odometry
-add_executable(odometry_extractor
-    src/odometry_extractor.cpp
+add_executable(infuse_odometry_extractor
+    src/infuse_odometry_extractor.cpp
 )
-target_link_libraries(odometry_extractor
+target_link_libraries(infuse_odometry_extractor
 	infuse_debug_tools
 )

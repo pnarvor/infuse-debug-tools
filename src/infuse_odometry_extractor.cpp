@@ -5,7 +5,7 @@ using namespace std;
 
 void usage()
 {
-    cout << "odometry_extractor basePath ouputPath inputTopic outputDeltaTopic outputAttitudeTopic" << endl;
+    cout << "Usage:\n   odometry_extractor base_path ouput_path input_topic output_delta_topic output_attitude_topic" << endl;
     throw invalid_argument("Bad arguments");
 }
 
