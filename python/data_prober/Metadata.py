@@ -4,10 +4,9 @@ from MetadataFormat import MetadataFormat
 
 class Metadata:
 
-    metadataFormat = MetadataFormat()
 
     def __init__(self):
-        pass
+        self.metadataFormat = MetadataFormat()
 
     def __repr__(self):
         return "Metadata()"
@@ -22,19 +21,22 @@ class Metadata:
         setattr(self, "index", [])
         for name in self.metadataFormat.dataFields:
             setattr(self, name, [])
-        
+       
         metadataFile = open(metadataFilename, "r")
-
+    
         nbAttributes = len(self.__dict__.keys())
         indexCount = 0
         for line in metadataFile:
             self.index.append(indexCount)
             words = line.split()
-            if len(words) != nbAttributes - 1:
-                raise Exception("Error : Number of columns isn't equal to the number of metadata fields descripted in " + metadataFilename)
+            if len(words) != nbAttributes - 2:
+                raise Exception("Error : Number of columns (" + str(len(words)) + ") isn't equal to the number of metadata fields descripted in " + metadataFilename + " (" + str(nbAttributes - 2) + ")")
             count = 0
             for word in words:
-                getattr(self, self.metadataFormat.dataFields[count]).append(float(word))
+                try:
+                    getattr(self, self.metadataFormat.dataFields[count]).append(float(word))
+                except ValueError:
+                    getattr(self, self.metadataFormat.dataFields[count]).append(word)
                 count += 1
             indexCount += 1
 

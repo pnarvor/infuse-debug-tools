@@ -19,30 +19,27 @@ class StereoPairStamp:
 
 class ImageSynchronizer:
 
-    dataRootFolder = ""
-
-    dataFrontLeft  = Metadata()
-    dataFrontRight = Metadata()
-    dataRearLeft   = Metadata()
-    dataRearRight  = Metadata()
-    dataNavLeft    = Metadata()
-    dataNavRight   = Metadata()
-
-    rawFrontStamps = OrderedDict()
-    rawRearStamps  = OrderedDict()
-    rawNavStamps   = OrderedDict()
-
-    iSynchedFrontStamps = OrderedDict()
-    iSynchedRearStamps  = OrderedDict()
-    iSynchedNavStamps   = OrderedDict()
-
-    eSynchedFrontStamps = OrderedDict()
-    eSynchedRearStamps  = OrderedDict()
-    eSynchedNavStamps   = OrderedDict()
-
     def __init__(self, dataRootFolder="./"):
 
         self.dataRootFolder = dataRootFolder
+
+        self.dataFrontLeft  = Metadata()
+        self.dataFrontRight = Metadata()
+        self.dataRearLeft   = Metadata()
+        self.dataRearRight  = Metadata()
+        self.dataNavLeft    = Metadata()
+        self.dataNavRight   = Metadata()
+
+        self.rawFrontStamps = OrderedDict()
+        self.rawRearStamps  = OrderedDict()
+        self.rawNavStamps   = OrderedDict()
+
+        self.iSynchedFrontStamps = OrderedDict()
+        self.iSynchedRearStamps  = OrderedDict()
+        self.iSynchedNavStamps   = OrderedDict()
+        self.eSynchedFrontStamps = OrderedDict()
+        self.eSynchedRearStamps  = OrderedDict()
+        self.eSynchedNavStamps   = OrderedDict()
 
         # loading front cam metadata
         self.dataFrontLeft.parse_metadata( self.dataRootFolder + "front_cam/left/left_dataformat.txt",   self.dataRootFolder + "front_cam/left/left_all_metadata.txt")

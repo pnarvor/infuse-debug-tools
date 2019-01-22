@@ -1,10 +1,8 @@
 
 class MetadataFormat:
 
-    dataFields = []
-
     def __init__(self):
-        pass
+        self.dataFields = []
 
     def __repr__(self):
         return "MetadataFormat()"
