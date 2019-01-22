@@ -208,8 +208,10 @@ void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& messag
     PositionManager::Pose attitude(newPose);
     attitude._tr.transform.translation = base::Vector3d::Zero();
     attitude._tr.transform.cov = base::Matrix6d::Zero();
-    attitude._tr.transform.cov(0,0) = 0.03;                      // 10 degrees standard deviation
-    attitude._tr.transform.cov(1,1) = 0.03;                      // 10 degrees standard deviation
+    attitude._tr.transform.cov(0,0) = 0.01;           // 10/3 degrees standard deviation
+    attitude._tr.transform.cov(1,1) = 0.01;           // 10/3 degrees standard deviation
+    //attitude._tr.transform.cov(0,0) = 0.03;         // 10 degrees standard deviation
+    //attitude._tr.transform.cov(1,1) = 0.03;         // 10 degrees standard deviation
     attitude._tr.transform.cov(2,2) = 2.35e-11 * timeSpentMoving_*timeSpentMoving_; // 1 degree deviation each hour
     
     outputMsg = OdometryExtractor::encodeAttitude(attitude);
