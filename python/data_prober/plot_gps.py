@@ -6,7 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from  matplotlib.patches import Ellipse
 
-dataRootDir = '/local/infuse/data-test/minnie/log_data_acquisition_2018_12_05_14_12_30/raw_data/';
+# dataRootDir = '/local/infuse/data-test/minnie/log_data_acquisition_2018_12_05_14_12_30/raw_data/';
+dataRootDir = '/media/M3-data1/M3-mission/minnie/log_data_acquisition_2018_12_02_13_42_55/raw_data/'
 
 
 gps = Metadata()
@@ -22,10 +23,10 @@ t0 = time_gps[0]
 
 N = len(gps.easting_sigma)
 
-images = ImageSynchronizer(dataRootDir)
-# Front cam
-frontLeftStamps  = images.dataFrontLeft.get_nparray('timestamp')
-frontRightStamps = images.dataFrontRight.get_nparray('timestamp')
+# images = ImageSynchronizer(dataRootDir)
+# # Front cam
+# frontLeftStamps  = images.dataFrontLeft.get_nparray('timestamp')
+# frontRightStamps = images.dataFrontRight.get_nparray('timestamp')
 
 fig1 = plt.figure()
 plt.plot(x_gps, y_gps, label="robot position")
@@ -60,20 +61,20 @@ axes[0].set_xlabel("Mission time (s)")
 axes[0].set_ylabel("Time (ms)")
 axes[0].legend(loc="upper right")
 axes[0].grid()
-
-dNorm = np.sqrt((x_gps[1:] - x_gps[:-1])**2 + (y_gps[1:] - y_gps[:-1])**2)
-axes[1].plot((time_gps[:-1] - t0) / 1000000.0, dNorm, label="GPS distance between successive poses")
-axes[1].set_xlabel("Mission time (s)")
-axes[1].set_ylabel("Distance (m)")
-axes[1].legend(loc="upper right")
-axes[1].grid()
-
-axes[2].plot((frontLeftStamps - t0) / 1000000.0, (frontRightStamps - frontLeftStamps) / 1000.0, label="Time difference right-left front images")
-axes[2].plot((frontLeftStamps[:-1] - t0) / 1000000.0, (frontLeftStamps[1:] - frontLeftStamps[:-1]) / 1000.0, label="Time between successive left front images")
-axes[2].set_xlabel("Mission time (s)")
-axes[2].set_ylabel("Time (ms)")
-axes[2].legend(loc="upper right")
-axes[2].grid()
+#### 
+#### dNorm = np.sqrt((x_gps[1:] - x_gps[:-1])**2 + (y_gps[1:] - y_gps[:-1])**2)
+#### axes[1].plot((time_gps[:-1] - t0) / 1000000.0, dNorm, label="GPS distance between successive poses")
+#### axes[1].set_xlabel("Mission time (s)")
+#### axes[1].set_ylabel("Distance (m)")
+#### axes[1].legend(loc="upper right")
+#### axes[1].grid()
+#### 
+#### # axes[2].plot((frontLeftStamps - t0) / 1000000.0, (frontRightStamps - frontLeftStamps) / 1000.0, label="Time difference right-left front images")
+#### # axes[2].plot((frontLeftStamps[:-1] - t0) / 1000000.0, (frontLeftStamps[1:] - frontLeftStamps[:-1]) / 1000.0, label="Time between successive left front images")
+#### # axes[2].set_xlabel("Mission time (s)")
+#### # axes[2].set_ylabel("Time (ms)")
+# axes[2].legend(loc="upper right")
+# axes[2].grid()
 
 plt.show(block=False)
 

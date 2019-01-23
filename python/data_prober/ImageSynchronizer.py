@@ -41,17 +41,17 @@ class ImageSynchronizer:
         self.eSynchedRearStamps  = OrderedDict()
         self.eSynchedNavStamps   = OrderedDict()
 
-        # loading front cam metadata
-        self.dataFrontLeft.parse_metadata( self.dataRootFolder + "front_cam/left/left_dataformat.txt",   self.dataRootFolder + "front_cam/left/left_all_metadata.txt")
-        self.dataFrontRight.parse_metadata(self.dataRootFolder + "front_cam/right/right_dataformat.txt", self.dataRootFolder + "front_cam/right/right_all_metadata.txt")
-        for i in range(len(self.dataFrontLeft.timestamp)):
-            self.rawFrontStamps[self.dataFrontLeft.index[i]] = StereoPairStamp(self.dataFrontLeft.index[i], self.dataFrontLeft.timestamp[i], self.dataFrontRight.timestamp[i])
+        # # loading front cam metadata
+        # self.dataFrontLeft.parse_metadata( self.dataRootFolder + "front_cam/left/left_dataformat.txt",   self.dataRootFolder + "front_cam/left/left_all_metadata.txt")
+        # self.dataFrontRight.parse_metadata(self.dataRootFolder + "front_cam/right/right_dataformat.txt", self.dataRootFolder + "front_cam/right/right_all_metadata.txt")
+        # for i in range(len(self.dataFrontLeft.timestamp)):
+        #     self.rawFrontStamps[self.dataFrontLeft.index[i]] = StereoPairStamp(self.dataFrontLeft.index[i], self.dataFrontLeft.timestamp[i], self.dataFrontRight.timestamp[i])
 
-        # loading rear cam metadata
-        self.dataRearLeft.parse_metadata( self.dataRootFolder + "rear_cam/left/left_dataformat.txt",   self.dataRootFolder + "rear_cam/left/left_all_metadata.txt")
-        self.dataRearRight.parse_metadata(self.dataRootFolder + "rear_cam/right/right_dataformat.txt", self.dataRootFolder + "rear_cam/right/right_all_metadata.txt")
-        for i in range(len(self.dataRearLeft.timestamp)):
-            self.rawRearStamps[self.dataRearLeft.index[i]] = StereoPairStamp(self.dataRearLeft.index[i], self.dataRearLeft.timestamp[i], self.dataRearRight.timestamp[i])
+        # # loading rear cam metadata
+        # self.dataRearLeft.parse_metadata( self.dataRootFolder + "rear_cam/left/left_dataformat.txt",   self.dataRootFolder + "rear_cam/left/left_all_metadata.txt")
+        # self.dataRearRight.parse_metadata(self.dataRootFolder + "rear_cam/right/right_dataformat.txt", self.dataRootFolder + "rear_cam/right/right_all_metadata.txt")
+        # for i in range(len(self.dataRearLeft.timestamp)):
+        #     self.rawRearStamps[self.dataRearLeft.index[i]] = StereoPairStamp(self.dataRearLeft.index[i], self.dataRearLeft.timestamp[i], self.dataRearRight.timestamp[i])
 
         # loading nav cam metadata
         self.dataNavLeft.parse_metadata( self.dataRootFolder + "nav_cam/left/left_dataformat.txt",   self.dataRootFolder + "nav_cam/left/left_all_metadata.txt")
@@ -136,25 +136,25 @@ class ImageSynchronizer:
 
         print("Stereo pairs intrisic synchronization :")
 
-        print("Front cams :\n")
-        self.iSynchedFrontStamps = self.rawFrontStamps
-        toBeRemoved = []
-        for pair in self.iSynchedFrontStamps.values():
-            if abs(pair.leftStamp - pair.rightStamp) > 1000*tolerance:
-                toBeRemoved.append(pair.index)
-        for index in toBeRemoved:
-            print("    Removing " + str(index))
-            del self.iSynchedFrontStamps[index]
+        # print("Front cams :\n")
+        # self.iSynchedFrontStamps = self.rawFrontStamps
+        # toBeRemoved = []
+        # for pair in self.iSynchedFrontStamps.values():
+        #     if abs(pair.leftStamp - pair.rightStamp) > 1000*tolerance:
+        #         toBeRemoved.append(pair.index)
+        # for index in toBeRemoved:
+        #     print("    Removing " + str(index))
+        #     del self.iSynchedFrontStamps[index]
 
-        print("Rear cams :\n")
-        self.iSynchedRearStamps = self.rawRearStamps
-        toBeRemoved = []
-        for pair in self.iSynchedRearStamps.values():
-            if abs(pair.leftStamp - pair.rightStamp) > 1000*tolerance:
-                toBeRemoved.append(pair.index)
-        for index in toBeRemoved:
-            print("    Removing " + str(index))
-            del self.iSynchedRearStamps[index]
+        # print("Rear cams :\n")
+        # self.iSynchedRearStamps = self.rawRearStamps
+        # toBeRemoved = []
+        # for pair in self.iSynchedRearStamps.values():
+        #     if abs(pair.leftStamp - pair.rightStamp) > 1000*tolerance:
+        #         toBeRemoved.append(pair.index)
+        # for index in toBeRemoved:
+        #     print("    Removing " + str(index))
+        #     del self.iSynchedRearStamps[index]
 
         print("Nav cams :\n")
         self.iSynchedNavStamps = self.rawNavStamps
