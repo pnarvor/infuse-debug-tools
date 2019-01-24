@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from  matplotlib.patches import Ellipse
 
-# dataRootDir = '/local/infuse/data-test/minnie/log_data_acquisition_2018_12_05_14_12_30/raw_data/';
-dataRootDir = '/media/M3-data1/M3-mission/minnie/log_data_acquisition_2018_12_02_13_42_55/raw_data/'
+dataRootDir = '/local/infuse/data-test/minnie/log_data_acquisition_2018_12_05_14_12_30/raw_data/';
+# dataRootDir = '/media/M3-data1/M3-mission/minnie/log_data_acquisition_2018_12_02_13_42_55/raw_data/'
 
 
 gps = Metadata()
@@ -76,7 +76,14 @@ axes[0].grid()
 # axes[2].legend(loc="upper right")
 # axes[2].grid()
 
-plt.show(block=False)
+fig, axes = plt.subplots(1,1, sharex=True, sharey=False)
+axes.plot((time_gps - t0) / 1000000.0, x_gps, label="GPS time difference between succesive poses")
+axes.set_xlabel("Mission time (s)")
+axes.set_ylabel("Time (ms)")
+axes.legend(loc="upper right")
+axes.grid()
+
+plt.show()
 
 
 
