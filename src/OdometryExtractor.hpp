@@ -12,6 +12,7 @@
 
 #include <infuse_msgs/asn1_bitstream.h>
 #include <infuse_asn1_types/TransformWithCovariance.h>
+#include <infuse_asn1_conversions/asn1_base_conversions.hpp>
 #include <infuse_asn1_conversions/asn1_pom_conversions.hpp>
 
 namespace Infuse
@@ -42,6 +43,7 @@ class OdometryExtractor
     PositionManager::Pose lastPose_;
     bool gotFirstPose_;
     double timeSpentMoving_;
+    
 
     public:
 
@@ -58,9 +60,9 @@ class OdometryExtractor
     // static functions
     protected:
 
-    static PositionManager::Pose decodePose(const infuse_msgs::asn1_bitstream& bstream);
-    static infuse_msgs::asn1_bitstream encodeDeltaPose(const PositionManager::Pose pose);
-    static infuse_msgs::asn1_bitstream encodeAttitude(const PositionManager::Pose pose);
+    static PositionManager::Pose decodePose(const infuse_msgs::asn1_bitstream& bstream, std::string& producerId);
+    static infuse_msgs::asn1_bitstream encodeDeltaPose(const PositionManager::Pose pose, std::string& producerId);
+    static infuse_msgs::asn1_bitstream encodeAttitude(const PositionManager::Pose pose, std::string& producerId);
 
     static PositionManager::Pose computeDeltaPose(const PositionManager::Pose& p0, const PositionManager::Pose& p1);
 

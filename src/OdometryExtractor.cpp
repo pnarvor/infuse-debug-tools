@@ -121,7 +121,7 @@ void OdometryExtractor::writeBags() const
     }
 }
 
-PositionManager::Pose OdometryExtractor::decodePose(const infuse_msgs::asn1_bitstream& bstream)
+PositionManager::Pose OdometryExtractor::decodePose(const infuse_msgs::asn1_bitstream& bstream, std::string& producerId)
 {
     PositionManager::Pose res;
     asn1SccTransformWithCovariance asnPose;
@@ -136,11 +136,12 @@ PositionManager::Pose OdometryExtractor::decodePose(const infuse_msgs::asn1_bits
         throw runtime_error(std::string("Could not decode asn pose, error code : ") + std::to_string(errorCode) + ".");
 
     fromASN1SCC(asnPose, res);
+    fromASN1SCC(asnPose.metadata.producerId, producerId);
 
     return res;
 }
 
-infuse_msgs::asn1_bitstream OdometryExtractor::encodeDeltaPose(const PositionManager::Pose pose)
+infuse_msgs::asn1_bitstream OdometryExtractor::encodeDeltaPose(const PositionManager::Pose pose, std::string& producerId)
 {
     infuse_msgs::asn1_bitstream res;
     res.type = std::string("TransformWithCovariance");
@@ -150,6 +151,7 @@ infuse_msgs::asn1_bitstream OdometryExtractor::encodeDeltaPose(const PositionMan
     BitStream asnBitStream;
 
     toASN1SCC(pose, asnPose);
+    toASN1SCC(producerId, asnPose.metadata.producerId);
     asnPose.metadata.dataEstimated.arr[0] = 1;
     asnPose.metadata.dataEstimated.arr[1] = 1;
     asnPose.metadata.dataEstimated.arr[2] = 1;
@@ -169,7 +171,7 @@ infuse_msgs::asn1_bitstream OdometryExtractor::encodeDeltaPose(const PositionMan
     return res;
 }
 
-infuse_msgs::asn1_bitstream OdometryExtractor::encodeAttitude(const PositionManager::Pose pose)
+infuse_msgs::asn1_bitstream OdometryExtractor::encodeAttitude(const PositionManager::Pose pose, std::string& producerId)
 {
     infuse_msgs::asn1_bitstream res;
     res.type = std::string("TransformWithCovariance");
@@ -179,6 +181,7 @@ infuse_msgs::asn1_bitstream OdometryExtractor::encodeAttitude(const PositionMana
     BitStream asnBitStream;
 
     toASN1SCC(pose, asnPose);
+    toASN1SCC(producerId, asnPose.metadata.producerId);
     asnPose.metadata.dataEstimated.arr[0] = 0;
     asnPose.metadata.dataEstimated.arr[1] = 0;
     asnPose.metadata.dataEstimated.arr[2] = 0;
@@ -201,20 +204,21 @@ infuse_msgs::asn1_bitstream OdometryExtractor::encodeAttitude(const PositionMana
 void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& message)
 {
     infuse_msgs::asn1_bitstream outputMsg;
+    std::string producerId;
     
-    PositionManager::Pose newPose = OdometryExtractor::decodePose(message);
+    PositionManager::Pose newPose = OdometryExtractor::decodePose(message, producerId);
 
     // computing absolute attitude
     PositionManager::Pose attitude(newPose);
     attitude._tr.transform.translation = base::Vector3d::Zero();
     attitude._tr.transform.cov = base::Matrix6d::Zero();
-    attitude._tr.transform.cov(0,0) = 0.01;           // 10/3 degrees standard deviation
-    attitude._tr.transform.cov(1,1) = 0.01;           // 10/3 degrees standard deviation
-    //attitude._tr.transform.cov(0,0) = 0.03;         // 10 degrees standard deviation
-    //attitude._tr.transform.cov(1,1) = 0.03;         // 10 degrees standard deviation
-    attitude._tr.transform.cov(2,2) = 2.35e-11 * timeSpentMoving_*timeSpentMoving_; // 1 degree deviation each hour
+    attitude._tr.transform.cov(3,3) = 0.01;           // 10/3 degrees standard deviation
+    attitude._tr.transform.cov(4,4) = 0.01;           // 10/3 degrees standard deviation
+    //attitude._tr.transform.cov(3,3) = 0.03;         // 10 degrees standard deviation
+    //attitude._tr.transform.cov(4,4) = 0.03;         // 10 degrees standard deviation
+    attitude._tr.transform.cov(5,5) = 2.35e-11 * timeSpentMoving_*timeSpentMoving_; // 1 degree deviation each hour
     
-    outputMsg = OdometryExtractor::encodeAttitude(attitude);
+    outputMsg = OdometryExtractor::encodeAttitude(attitude, producerId);
     outputMsg.header = message.header;
     currentOutputAttitude_->insert(std::pair<ros::Time, infuse_msgs::asn1_bitstream>(outputMsg.header.stamp, outputMsg));
     
@@ -261,7 +265,7 @@ void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& messag
     }
 
     // exporting delta
-    outputMsg = OdometryExtractor::encodeDeltaPose(dp);
+    outputMsg = OdometryExtractor::encodeDeltaPose(dp, producerId);
     outputMsg.header = message.header;
     currentOutputDelta_->insert(std::pair<ros::Time, infuse_msgs::asn1_bitstream>(outputMsg.header.stamp, outputMsg));
     
