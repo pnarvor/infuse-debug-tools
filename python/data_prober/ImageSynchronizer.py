@@ -59,6 +59,7 @@ class ImageSynchronizer:
         for i in range(len(self.dataNavLeft.timestamp)):
             self.rawNavStamps[self.dataNavLeft.index[i]] = StereoPairStamp(self.dataNavLeft.index[i], self.dataNavLeft.timestamp[i], self.dataNavRight.timestamp[i])
 
+    # getter for time stamps of intrinsic synched stereo pairs
     def get_isynched_front_pair_stamps(self):
         res = np.empty([len(self.iSynchedFrontStamps.values()),1])
         i = 0
@@ -83,6 +84,7 @@ class ImageSynchronizer:
             i += 1
         return res
 
+    # getter for time stamps of extrinsic synched stereo pairs
     def get_esynched_front_pair_stamps(self):
         res = np.empty([len(self.eSynchedFrontStamps.values()),1])
         i = 0
@@ -107,7 +109,32 @@ class ImageSynchronizer:
             i += 1
         return res
 
-    # getting indexes
+    # getting indexes of intrinsic synched pairs
+    def get_isynched_front_pair_indexes(self):
+        res = np.empty([len(self.eSynchedFrontStamps.values()),1])
+        i = 0
+        for value in self.iSynchedFrontStamps.values():
+            res[i] = value.index
+            i += 1
+        return res
+
+    def get_isynched_rear_pair_indexes(self):
+        res = np.empty([len(self.eSynchedRearStamps.values()),1])
+        i = 0
+        for value in self.iSynchedRearStamps.values():
+            res[i] = value.index
+            i += 1
+        return res
+
+    def get_isynched_nav_pair_indexes(self):
+        res = np.empty([len(self.eSynchedNavStamps.values()),1])
+        i = 0
+        for value in self.iSynchedNavStamps.values():
+            res[i] = value.index
+            i += 1
+        return res
+
+    # getting indexes of extrinsic synched pairs
     def get_esynched_front_pair_indexes(self):
         res = np.empty([len(self.eSynchedFrontStamps.values()),1])
         i = 0

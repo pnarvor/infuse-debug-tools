@@ -12,6 +12,7 @@ class BrokenImageDetector:
          self.kernel = np.array([[-1.], \
                                  [ 1.]])
          self.median_kernel_size = 3
+         self.score_list = []
 
     def detect(self, path):
     
@@ -22,16 +23,16 @@ class BrokenImageDetector:
                  filenames.append(filename)
          filenames.sort()
         
-         score_list = []
+         self.score_list = []
          print("computing scores :")
          for filename in filenames:
          # for filename in itertools.islice(filenames, 500, 1000):
          # for filename in itertools.islice(filenames, 491, 492):
              print("    " + filename)
              img = imread(path + filename, mode='F')
-             score_list.append(self.compute_score(img))
+             self.score_list.append(self.compute_score(img))
    
-         scores = np.array(score_list)
+         scores = np.array(self.score_list)
          # return scores - medfilt(scores, kernel_size = self.median_kernel_size)
          return scores
 
@@ -69,3 +70,20 @@ class BrokenImageDetector:
         max_value = np.amax(edge_detection) - np.mean(edge_detection)
 
         return max_value
+
+    def write_score_file(self, path):
+        
+        format_file = open(path + "image_integrity_dataformat.txt", 'w')
+
+        format_file.write("# 1 - image_index\n")
+        format_file.write("# 2 - score\n")
+
+        format_file.close()
+
+        data_file = open(path + "image_integrity.txt", 'w')
+
+        count = 0
+        for score in self.score_list:
+            line = format(count, '05d') + " " + str(score) + "\n"
+            data_file.write(line)
+            count += 1
