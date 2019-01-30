@@ -57,21 +57,27 @@ class NoiseGenerator
 
     public:
 
-    NoiseInfo(bool noiseLess, double std, double fc) :
+    NoiseGenerator(double stddev, double fc, bool noiseLess = false) :
         noiseLess_(noiseLess),
-        dist_(0.0, std),
-        std_(std),
+        dist_(0.0, stddev),
         filter_(fc)
     {
     }
 
     void generate(std::vector<double>& noise, int N)
     {
-        std::default_random_engine generator;
         noise.resize(N);
-        for(int& value : noise)
+        if(noiseLess_)
+        {
+            for(double& value : noise)
+                value = 0.0;
+            return;
+        }
+
+        std::default_random_engine generator;
+        for(double& value : noise)
             value = dist_(generator);
-        filter.apply(noise);
+        filter_.apply(noise);
     }
 };
 

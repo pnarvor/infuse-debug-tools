@@ -11,6 +11,15 @@ void usage()
 
 int main(int argc, char** argv)
 {
+    cout << "Testing noise generator... ";
+    Infuse::NoiseGenerator gen(1.0, 3.0 / 20.0);
+    std::vector<double> noise;
+    gen.generate(noise, 20000);
+    cout << "Done !" << endl;
+
+    for(double value : noise)
+        cout << value << endl;
+
     if(argc < 6)
         usage();
 
@@ -19,13 +28,6 @@ int main(int argc, char** argv)
     std::string inputTopic(argv[3]);
     std::string outputDeltaTopic(argv[4]);
     std::string outputAttitudeTopic(argv[5]);
-
-    cout << "Testing noise generator... ";
-    NoiseGenerator gen(1.0, 3.0 / 20.0);
-    std::vector<double> noise;
-    gen.generate(noise, 20000);
-    cout << "Done !" << endl;
-
 
     //Infuse::OdometryExtractor generator("/home/pnarvor/work/infuse/data/log_data_acquisition_2018_10_25_16_37_06/my_bag", "/rmp400/PoseInfuse", "/rmp400/Delta", "/rmp400/Attitude");
     Infuse::OdometryExtractor generator(basePath, inputTopic, outputDeltaTopic, outputAttitudeTopic, outputPath);
