@@ -4,6 +4,7 @@
 #include <iostream>
 #include <exception>
 #include <algorithm>
+#include <random>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -17,6 +18,62 @@
 
 namespace Infuse
 {
+
+class Filter1
+{
+    protected:
+
+    double G_;
+    double alpha_;
+    double last_;
+
+    public:
+
+    Filter1(double fcn) :
+        G_(fcn / (fcn + 2.0)),
+        alpha_((fcn - 2.0) / (fcn + 2.0)),
+        last_(0.0)
+    {}
+
+    void apply(std::vector<double>& v)
+    {
+        last_ = 0.0;
+        for(double& value : v)
+        {
+            double tmp = value;
+            value = G_*value - alpha_*last_;
+            last_ = tmp;
+        }
+    }
+};
+
+class NoiseGenerator
+{
+    public:
+
+    bool noiseLess_;
+    std::normal_distribution<double> dist_;
+    Filter1 filter_;
+
+    public:
+
+    NoiseInfo(bool noiseLess, double std, double fc) :
+        noiseLess_(noiseLess),
+        dist_(0.0, std),
+        std_(std),
+        filter_(fc)
+    {
+    }
+
+    void generate(std::vector<double>& noise, int N)
+    {
+        std::default_random_engine generator;
+        noise.resize(N);
+        for(int& value : noise)
+            value = dist_(generator);
+        filter.apply(noise);
+    }
+};
 
 class OdometryExtractor
 {
