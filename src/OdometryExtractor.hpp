@@ -54,14 +54,23 @@ class NoiseGenerator
     bool noiseLess_;
     std::normal_distribution<double> dist_;
     Filter1 filter_;
+    std::default_random_engine generator_;
 
     public:
 
-    NoiseGenerator(double stddev, double fc, bool noiseLess = false) :
-        noiseLess_(noiseLess),
-        dist_(0.0, stddev),
+    NoiseGenerator(double stddev, double fc = 1.0) :
         filter_(fc)
     {
+        if(stddev <= 0)
+        {
+            noiseLess_ = true;
+            dist_ = std::normal_distribution<double>(0.0, 0.0);
+        }
+        else
+        {
+            noiseLess_ = false;
+            dist_ = std::normal_distribution<double>(0.0, stddev);
+        }
     }
 
     void generate(std::vector<double>& noise, int N)
@@ -74,10 +83,16 @@ class NoiseGenerator
             return;
         }
 
-        std::default_random_engine generator;
         for(double& value : noise)
-            value = dist_(generator);
-        filter_.apply(noise);
+            value = dist_(generator_);
+        //filter_.apply(noise);
+    }
+
+    double get()
+    {
+        if(noiseLess_)
+            return 0.0;
+        return dist_(generator_);
     }
 };
 
@@ -106,13 +121,18 @@ class OdometryExtractor
     PositionManager::Pose lastPose_;
     bool gotFirstPose_;
     double timeSpentMoving_;
-    
+
+    public:
+
+    NoiseGenerator noiseGenDelta_;
+    NoiseGenerator noiseGenAttitude_;
 
     public:
 
     OdometryExtractor(const boost::filesystem::path& bagPrefixPath, const std::string& inputPoseTopic, const std::string& outputDeltaTopic, const std::string& outputAttitudeTopic, const std::string& outputPath = "delta", const std::list<std::string>& topicsToCopy = std::list<std::string>());
     void extract();
     void computeOutputData(); // Fill outputData (generate delta poses to be saved in output bags
+    void addNoise();
     void writeBags() const;
 
     protected:

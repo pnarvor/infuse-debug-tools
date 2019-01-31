@@ -43,6 +43,10 @@ class DataCleaner:
         self.navDisparityDataFormatFilename      = "stereo/nav_disparity/disparity_dataformat.txt"
         self.navDisparityDataFilename            = "stereo/nav_disparity/disparity_all_metadata.txt"
 
+        #GPS raw files
+        self.gpsDat:qa
+        aFormatFilename = "gps
+
         self.dataFrontLeft           = Metadata()
         self.dataFrontRight          = Metadata()
         self.dataFrontDisparity      = Metadata()

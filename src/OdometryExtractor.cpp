@@ -11,7 +11,9 @@ OdometryExtractor::OdometryExtractor(const boost::filesystem::path& bagPrefixPat
     outputAttitudeTopic_(outputAttitudeTopic),
     outputPath_(outputPath),
     outputDelta_(0),
-    outputAttitude_(0)
+    outputAttitude_(0),
+    noiseGenDelta_(0.002),
+    noiseGenAttitude_(0.5 * M_PI / 180.0)
 {
     this->findBagPaths(bagPrefixPath);
 }
@@ -19,6 +21,7 @@ OdometryExtractor::OdometryExtractor(const boost::filesystem::path& bagPrefixPat
 void OdometryExtractor::extract()
 {
     this->computeOutputData();
+    //this->addNoise();
     this->writeBags();
 }
 
@@ -211,12 +214,15 @@ void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& messag
     // computing absolute attitude
     PositionManager::Pose attitude(newPose);
     attitude._tr.transform.translation = base::Vector3d::Zero();
+    attitude._tr.transform.orientation.x() += noiseGenAttitude_.get();
+    attitude._tr.transform.orientation.y() += noiseGenAttitude_.get();
+    attitude._tr.transform.orientation.z() += noiseGenAttitude_.get();
+    attitude._tr.transform.orientation.normalize();
     attitude._tr.transform.cov = base::Matrix6d::Zero();
-    attitude._tr.transform.cov(3,3) = 0.01;           // 10/3 degrees standard deviation
-    attitude._tr.transform.cov(4,4) = 0.01;           // 10/3 degrees standard deviation
-    //attitude._tr.transform.cov(3,3) = 0.03;         // 10 degrees standard deviation
-    //attitude._tr.transform.cov(4,4) = 0.03;         // 10 degrees standard deviation
-    attitude._tr.transform.cov(5,5) = 2.35e-11 * timeSpentMoving_*timeSpentMoving_; // 1 degree deviation each hour
+    double stddev = noiseGenAttitude_.dist_.stddev();
+    attitude._tr.transform.cov(3,3) = 0.01 + stddev*stddev;           // 10/3 degrees standard deviation
+    attitude._tr.transform.cov(4,4) = 0.01 + stddev*stddev;           // 10/3 degrees standard deviation
+    attitude._tr.transform.cov(5,5) = 2.35e-11 * timeSpentMoving_*timeSpentMoving_ + stddev*stddev; // 1 degree deviation each hour
     
     outputMsg = OdometryExtractor::encodeAttitude(attitude, producerId);
     outputMsg.header = message.header;
@@ -239,6 +245,10 @@ void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& messag
     dp._tr.transform.orientation = lastPose_._tr.transform.orientation.inverse()*newPose._tr.transform.orientation;
     lastPose_ = newPose;
 
+    dp._tr.transform.translation.x() += noiseGenDelta_.get();
+    dp._tr.transform.translation.y() += noiseGenDelta_.get();
+    dp._tr.transform.translation.z() += noiseGenDelta_.get();
+    
     double dt = (dp._childTime - dp._parentTime) / 1000000.0;
     double v = dp._tr.transform.translation.norm() / dt;
     Eigen::AngleAxis<double> angleAxis(dp._tr.transform.orientation);
@@ -254,6 +264,11 @@ void OdometryExtractor::processMessage(const infuse_msgs::asn1_bitstream& messag
     Sig0 = base::Matrix3d::Zero();
     Sig0(0,0) = (0.1*v)*(0.1*v);
     Sig = rotRK2*Sig0*rotRK2.transpose();
+
+    stddev = noiseGenAttitude_.dist_.stddev();
+    Sig(0,0) += stddev*stddev;
+    Sig(1,1) += stddev*stddev;
+    Sig(2,2) += stddev*stddev;
 
     dp._tr.transform.cov = base::Matrix6d::Zero();
     for(int i = 0; i < 3; i++)

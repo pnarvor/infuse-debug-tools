@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 using namespace std;
 
 #include "OdometryExtractor.hpp"
@@ -11,15 +12,6 @@ void usage()
 
 int main(int argc, char** argv)
 {
-    cout << "Testing noise generator... ";
-    Infuse::NoiseGenerator gen(1.0, 3.0 / 20.0);
-    std::vector<double> noise;
-    gen.generate(noise, 20000);
-    cout << "Done !" << endl;
-
-    for(double value : noise)
-        cout << value << endl;
-
     if(argc < 6)
         usage();
 
@@ -29,8 +21,13 @@ int main(int argc, char** argv)
     std::string outputDeltaTopic(argv[4]);
     std::string outputAttitudeTopic(argv[5]);
 
-    //Infuse::OdometryExtractor generator("/home/pnarvor/work/infuse/data/log_data_acquisition_2018_10_25_16_37_06/my_bag", "/rmp400/PoseInfuse", "/rmp400/Delta", "/rmp400/Attitude");
+    double noiseStd = 0.002;
+    if(argc == 7)
+        noiseStd = std::stod(argv[6]);
+
     Infuse::OdometryExtractor generator(basePath, inputTopic, outputDeltaTopic, outputAttitudeTopic, outputPath);
+    generator.noiseGenDelta_    = Infuse::NoiseGenerator(0.002);
+    generator.noiseGenAttitude_ = Infuse::NoiseGenerator(0.5 * M_PI / 180.0);
     generator.extract();
 
     return 0;
