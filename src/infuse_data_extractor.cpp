@@ -44,6 +44,8 @@ int main(int argc, char **argv)
       ("odom,o", bpo::bool_switch(), "Extract odometry (RMP) pose data")
       ("tokamak,t", bpo::bool_switch(), "Extract tokamak pose data")
       ("gps,g", bpo::bool_switch(), "Extract GPS pose data")
+      ("odom-delta", bpo::bool_switch(), "Extract delta odometry pose data")
+      ("odom-attitude", bpo::bool_switch(), "Extract attitude odometry pose data")
       ;
 
     // Gather color name strings
@@ -93,6 +95,16 @@ int main(int argc, char **argv)
       ("gps-info-topic", bpo::value<std::string>()->default_value("/bestutm_info"), "GPS info topic")
       ;
 
+    bpo::options_description odomDelta{"Delta odometry specific options"};
+    odomDelta.add_options()
+      ("odom-delta-topic", bpo::value<std::vector<std::string>>()->default_value({"/rmp400/lagrandissimtranslacion","/rmp440/lagrandissimtranslacion"}), "Delta odometry topic")
+      ;
+
+    bpo::options_description odomAttitude{"Attitude odometry specific options"};
+    odomAttitude.add_options()
+      ("odom-attitude-topic", bpo::value<std::vector<std::string>>()->default_value({"/rmp400/lamanificarotacion","/rmp440/lamanificarotacion"}), "Attitude odometry topic")
+      ;
+
     // Backend options will be hidden from the user
     bpo::options_description backend{"Backend Options"};
     backend.add_options()
@@ -105,14 +117,14 @@ int main(int argc, char **argv)
 
     // All options, used for parsing
     bpo::options_description all("General options");
-    all.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(backend);
+    all.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(backend).add(odomDelta).add(odomAttitude);
     all.add_options()
       ("help,h", "Display help")
       ;
 
     // Only the options that should be visible to the user
     bpo::options_description visible("General options");
-    visible.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps);
+    visible.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(odomDelta).add(odomAttitude);
     visible.add_options()
       ("help,h", "Display help")
       ;
@@ -145,6 +157,8 @@ int main(int argc, char **argv)
         not vm["nav"].as<bool>() and
         not vm["rear"].as<bool>() and
         not vm["odom"].as<bool>() and
+        not vm["odom-delta"].as<bool>() and
+        not vm["odom-attitude"].as<bool>() and
         not vm["tokamak"].as<bool>() and
         not vm["gps"].as<bool>()) {
      std::cout << "Error: Extraction option not informed. Please use at least one extraction option." << '\n';
@@ -160,20 +174,24 @@ int main(int argc, char **argv)
       return 1;
     }
 
-    // Makes sure the output dir does not already exists
+    // Makes sure the output dir does not already exists // EDIT : Allowing export in master dir to be able to export all data in several calls (the subdir are checked in the Extractors to avoid loos of data
     bfs::path output_dir = vm["output-dir"].as<std::string>();
     if (bfs::exists(output_dir)) {
       std::stringstream ss;
-      if (bfs::is_directory(output_dir))
+      /*if (bfs::is_directory(output_dir))
         ss << "A directory named \"" << output_dir.string() << "\" already exists. Please remove it or choose another directory to output the dataset.";
-      else if (bfs::is_regular_file(output_dir))
+      else*/ if (bfs::is_regular_file(output_dir))
+      {
         ss << "A regular file named \"" << output_dir.string() << "\" already exists. Please remove this file or choose another directory name to output the dataset.";
-      else
+        throw std::runtime_error(ss.str());
+      }
+      else if (!bfs::is_directory(output_dir))
+      {
         ss << "\"" << output_dir.string() << "\" already exists. Please remove it or choose another directory name to output the dataset.";
-      throw std::runtime_error(ss.str());
+        throw std::runtime_error(ss.str());
+      }
     }
-
-    // Create output dir
+    else
     {
       bool dir_created = bfs::create_directory(output_dir);
       if (not dir_created) {
@@ -266,6 +284,34 @@ int main(int argc, char **argv)
           vm["gps-info-topic"].as<std::string>()
       };
       gps_extractor.Extract();
+    }
+
+    // Process odo_delta data
+    if (vm["odom-delta"].as<bool>())
+    {
+      // Create the extractor and extract tokamak poses.
+      bfs::path odo_delta_output_dir = output_dir / "odo_delta";
+      infuse_debug_tools::PoseExtractor pose_extractor{
+          odo_delta_output_dir.string(),
+          vm["bags"].as<std::vector<std::string>>(),
+          vm["odom-delta-topic"].as<std::vector<std::string>>(),
+          "odo_delta"
+      };
+      pose_extractor.Extract();
+    }
+
+    // Process odo_attitude data
+    if (vm["odom-attitude"].as<bool>())
+    {
+      // Create the extractor and extract tokamak poses.
+      bfs::path odo_attitude_output_dir = output_dir / "odo_attitude";
+      infuse_debug_tools::PoseExtractor pose_extractor{
+          odo_attitude_output_dir.string(),
+          vm["bags"].as<std::vector<std::string>>(),
+          vm["odom-attitude-topic"].as<std::vector<std::string>>(),
+          "odo_attitude"
+      };
+      pose_extractor.Extract();
     }
 
   } catch (const bpo::error &ex) {
