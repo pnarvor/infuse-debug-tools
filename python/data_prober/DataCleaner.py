@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from Metadata import Metadata
 
@@ -44,8 +45,19 @@ class DataCleaner:
         self.navDisparityDataFilename            = "stereo/nav_disparity/disparity_all_metadata.txt"
 
         #GPS raw files
-        self.gpsDat:qa
-        aFormatFilename = "gps
+        self.gpsDataFormatFilename      = "gps/gps_pose_info_dataformat.txt"
+        self.gpsDataFilename            = "gps/gps_pose_info.txt"
+        #Odometry raw files
+        self.odometryDataFormatFilename = "odometry/dataformat.txt"
+        self.odometryDataFilename       = "odometry/odometry.txt"
+        #Tokamak raw files
+        self.tokamakDataFormatFilename  = "tokamak/dataformat.txt"
+        self.tokamakDataFilename        = "tokamak/tokamak.txt"
+
+        #Velodyne raw files
+        self.velodyneDataFormatFilename  = "velodyne/dataformat.txt"
+        self.velodyneDataFilename        = "velodyne/all_metadata.txt"
+        self.velodynePCDPath             = "velodyne/data/"
 
         self.dataFrontLeft           = Metadata()
         self.dataFrontRight          = Metadata()
@@ -83,6 +95,40 @@ class DataCleaner:
         self.navLeftIntegrity      = np.empty([0])
         self.navRightIntegrity     = np.empty([0])
         self.navTotalScore         = np.empty([0])
+
+        # GPS
+        self.dataGPS   = Metadata()
+        self.gpsTime   = np.empty([0])
+        self.gpsX      = np.empty([0])
+        self.gpsY      = np.empty([0])
+        self.gpsZ      = np.empty([0])
+        self.gpsPeriod = np.empty([0])
+        self.gpsSpeed  = np.empty([0])
+        
+        # Odometry
+        self.dataOdometry   = Metadata()
+        self.odometryTime   = np.empty([0])
+        self.odometryX      = np.empty([0])
+        self.odometryY      = np.empty([0])
+        self.odometryZ      = np.empty([0])
+        self.odometryPeriod = np.empty([0])
+        self.odometrySpeed  = np.empty([0])
+
+        # Tokamak
+        self.dataTokamak   = Metadata()
+        self.tokamakTime   = np.empty([0])
+        self.tokamakX      = np.empty([0])
+        self.tokamakY      = np.empty([0])
+        self.tokamakZ      = np.empty([0])
+        self.tokamakPeriod = np.empty([0])
+        self.tokamakSpeed  = np.empty([0])
+
+        # Velodyne
+        self.dataVelodyne      = Metadata()
+        self.velodyneCloudTime = np.empty([0])
+        self.velodynePeriod    = np.empty([0])
+        self.velodyneDesync    = np.empty([0])
+        self.velodyneNbPoints  = np.empty([0])
 
     # Stereo desync #################################### 
     def compute_front_stereo_desync(self):
@@ -189,6 +235,87 @@ class DataCleaner:
 
         self.navTotalScore = 1 - np.exp(-np.sum(np.multiply(dataArray, sig @ dataArray), axis=0))
 
+    def compute_gps(self):
+
+        self.dataGPS.parse_metadata(self.dataRootDir + self.gpsDataFormatFilename,   self.dataRootDir + self.gpsDataFilename)
+
+        self.gpsTime = self.dataGPS.get_nparray('child_time')
+        self.gpsX    = self.dataGPS.get_nparray('x')
+        self.gpsY    = self.dataGPS.get_nparray('y')
+        self.gpsZ    = self.dataGPS.get_nparray('z')
+
+        self.gpsPeriod = self.gpsTime[1:] - self.gpsTime[:-1]
+        dx = self.gpsX[1:] - self.gpsX[:-1]
+        dy = self.gpsY[1:] - self.gpsY[:-1]
+        dz = self.gpsZ[1:] - self.gpsZ[:-1]
+
+        self.gpsSpeed = np.nan_to_num(np.sqrt(dx*dx + dy*dy + dz*dz) / self.gpsPeriod)
+
+    def compute_odometry(self):
+
+        self.dataOdometry.parse_metadata(self.dataRootDir + self.odometryDataFormatFilename,   self.dataRootDir + self.odometryDataFilename)
+
+        self.odometryTime = self.dataOdometry.get_nparray('child_time')
+        self.odometryX    = self.dataOdometry.get_nparray('x')
+        self.odometryY    = self.dataOdometry.get_nparray('y')
+        self.odometryZ    = self.dataOdometry.get_nparray('z')
+
+        self.odometryPeriod = self.odometryTime[1:] - self.odometryTime[:-1]
+        dx = self.odometryX[1:] - self.odometryX[:-1]
+        dy = self.odometryY[1:] - self.odometryY[:-1]
+        dz = self.odometryZ[1:] - self.odometryZ[:-1]
+
+        self.odometrySpeed = np.nan_to_num(np.sqrt(dx*dx + dy*dy + dz*dz) / self.odometryPeriod)
+
+    def compute_tokamak(self):
+
+        self.dataTokamak.parse_metadata(self.dataRootDir + self.tokamakDataFormatFilename,   self.dataRootDir + self.tokamakDataFilename)
+
+        self.tokamakTime = self.dataTokamak.get_nparray('child_time')
+        self.tokamakX    = self.dataTokamak.get_nparray('x')
+        self.tokamakY    = self.dataTokamak.get_nparray('y')
+        self.tokamakZ    = self.dataTokamak.get_nparray('z')
+
+        self.tokamakPeriod = self.tokamakTime[1:] - self.tokamakTime[:-1]
+        dx = self.tokamakX[1:] - self.tokamakX[:-1]
+        dy = self.tokamakY[1:] - self.tokamakY[:-1]
+        dz = self.tokamakZ[1:] - self.tokamakZ[:-1]
+
+        self.tokamakSpeed = np.nan_to_num(np.sqrt(dx*dx + dy*dy + dz*dz) / self.tokamakPeriod)
+
+    def compute_velodyne(self):
+
+        self.dataVelodyne.parse_metadata(self.dataRootDir + self.velodyneDataFormatFilename,   self.dataRootDir + self.velodyneDataFilename)
+
+        self.velodyneCloudTime = self.dataVelodyne.get_nparray('cloud_time')
+        self.velodynePeriod = self.velodyneCloudTime[1:] - self.velodyneCloudTime[:-1]
+        self.velodyneDesync = self.dataVelodyne.get_nparray('pose_fixed_robot__child_time') - self.velodyneCloudTime
+
+        files = os.listdir(self.dataRootDir + self.velodynePCDPath)
+        filenames = []
+        for filename in files:
+            if filename.endswith(".pcd"):
+                filenames.append(filename)
+        filenames.sort()
+
+        pointCount = []
+        for filename in filenames:
+            pcdFile = open(self.dataRootDir + self.velodynePCDPath + filename, "r")
+            lineCount = 0
+            # while lineCount < 10:
+            while lineCount < 9:
+                line = pcdFile.readline()
+                print(line)
+                if line.split(" ")[0] == "POINTS":
+                    pointCount.append(int(line.split(" ")[1]))
+                    break
+                lineCount += 1
+            if lineCount >= 9:
+                print("Error reading " + self.dataRootDir + self.velodynePCDPath + filename + ". File corrupted.\n")
+                pointCount.append(0)
+        
+        self.velodyneNbPoints = np.array(pointCount)
+
     def start_mission_time(self):
 
         times = []
@@ -200,7 +327,4 @@ class DataCleaner:
             times.append(self.navMinTime)
 
         return min(times)
-
         
-
-

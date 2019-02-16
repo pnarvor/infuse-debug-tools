@@ -23,11 +23,6 @@ t0 = time_gps[0]
 
 N = len(gps.easting_sigma)
 
-# images = ImageSynchronizer(dataRootDir)
-# # Front cam
-# frontLeftStamps  = images.dataFrontLeft.get_nparray('timestamp')
-# frontRightStamps = images.dataFrontRight.get_nparray('timestamp')
-
 fig1 = plt.figure()
 plt.plot(x_gps, y_gps, label="robot position")
 plt.legend(loc="upper right")
@@ -55,35 +50,14 @@ plt.legend(loc="upper right")
 ####     axes.add_artist(e)
 #### plt.gca().set_aspect('equal', adjustable='box')
 
-fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
-axes[0].plot((time_gps[:-1] - t0) / 1000000.0, (time_gps[1:] - time_gps[:-1]) / 1000.0, label="GPS time difference between succesive poses")
-axes[0].set_xlabel("Mission time (s)")
-axes[0].set_ylabel("Time (ms)")
-axes[0].legend(loc="upper right")
-axes[0].grid()
-#### 
-#### dNorm = np.sqrt((x_gps[1:] - x_gps[:-1])**2 + (y_gps[1:] - y_gps[:-1])**2)
-#### axes[1].plot((time_gps[:-1] - t0) / 1000000.0, dNorm, label="GPS distance between successive poses")
-#### axes[1].set_xlabel("Mission time (s)")
-#### axes[1].set_ylabel("Distance (m)")
-#### axes[1].legend(loc="upper right")
-#### axes[1].grid()
-#### 
-#### # axes[2].plot((frontLeftStamps - t0) / 1000000.0, (frontRightStamps - frontLeftStamps) / 1000.0, label="Time difference right-left front images")
-#### # axes[2].plot((frontLeftStamps[:-1] - t0) / 1000000.0, (frontLeftStamps[1:] - frontLeftStamps[:-1]) / 1000.0, label="Time between successive left front images")
-#### # axes[2].set_xlabel("Mission time (s)")
-#### # axes[2].set_ylabel("Time (ms)")
-# axes[2].legend(loc="upper right")
-# axes[2].grid()
-
 fig, axes = plt.subplots(1,1, sharex=True, sharey=False)
-axes.plot((time_gps - t0) / 1000000.0, x_gps, label="GPS time difference between succesive poses")
+axes.plot((time_gps[:-1] - t0) / 1000000.0, (time_gps[1:] - time_gps[:-1]) / 1000.0, label="GPS time difference between succesive poses")
 axes.set_xlabel("Mission time (s)")
 axes.set_ylabel("Time (ms)")
 axes.legend(loc="upper right")
 axes.grid()
 
-plt.show()
+plt.show(block=False)
 
 
 
