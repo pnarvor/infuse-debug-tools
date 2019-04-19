@@ -139,19 +139,24 @@ int main(int argc, char **argv)
     }
 
     // Makes sure the output dir does not already exists
+    // EDIT : Allowing export in master dir to be able to export all data in several calls (the subdirs are checked in the Extractors to avoid loss of data)
     bfs::path output_dir = vm["output-dir"].as<std::string>();
     if (bfs::exists(output_dir)) {
       std::stringstream ss;
-      if (bfs::is_directory(output_dir))
+      /*if (bfs::is_directory(output_dir))
         ss << "A directory named \"" << output_dir.string() << "\" already exists. Please remove it or choose another directory to output the dataset.";
-      else if (bfs::is_regular_file(output_dir))
+      else*/ if (bfs::is_regular_file(output_dir))
+      {
         ss << "A regular file named \"" << output_dir.string() << "\" already exists. Please remove this file or choose another directory name to output the dataset.";
-      else
+        throw std::runtime_error(ss.str());
+      }
+      else if (!bfs::is_directory(output_dir))
+      {
         ss << "\"" << output_dir.string() << "\" already exists. Please remove it or choose another directory name to output the dataset.";
-      throw std::runtime_error(ss.str());
+        throw std::runtime_error(ss.str());
+      }
     }
-
-    // Create output dir
+    else
     {
       bool dir_created = bfs::create_directory(output_dir);
       if (not dir_created) {

@@ -169,7 +169,8 @@ int main(int argc, char **argv)
       return 1;
     }
 
-    // Makes sure the output dir does not already exists // EDIT : Allowing export in master dir to be able to export all data in several calls (the subdir are checked in the Extractors to avoid loos of data
+    // Makes sure the output dir does not already exists
+    // EDIT : Allowing export in master dir to be able to export all data in several calls (the subdirs are checked in the Extractors to avoid loss of data)
     bfs::path output_dir = vm["output-dir"].as<std::string>();
     if (bfs::exists(output_dir)) {
       std::stringstream ss;
