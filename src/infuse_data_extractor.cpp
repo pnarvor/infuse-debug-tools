@@ -2,6 +2,7 @@
 #include "ImagePairExtractor.hpp"
 #include "PoseExtractor.hpp"
 #include "GpsExtractor.hpp"
+#include "DeltaOdometryExtractor.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -45,7 +46,6 @@ int main(int argc, char **argv)
       ("tokamak,t", bpo::bool_switch(), "Extract tokamak pose data")
       ("gps,g", bpo::bool_switch(), "Extract GPS pose data")
       ("odom-delta", bpo::bool_switch(), "Extract delta odometry pose data")
-      ("odom-attitude", bpo::bool_switch(), "Extract attitude odometry pose data")
       ;
 
     // Gather color name strings
@@ -97,12 +97,7 @@ int main(int argc, char **argv)
 
     bpo::options_description odomDelta{"Delta odometry specific options"};
     odomDelta.add_options()
-      ("odom-delta-topic", bpo::value<std::vector<std::string>>()->default_value({"/rmp400/lagrandissimtranslacion","/rmp440/lagrandissimtranslacion"}), "Delta odometry topic")
-      ;
-
-    bpo::options_description odomAttitude{"Attitude odometry specific options"};
-    odomAttitude.add_options()
-      ("odom-attitude-topic", bpo::value<std::vector<std::string>>()->default_value({"/rmp400/lamanificarotacion","/rmp440/lamanificarotacion"}), "Attitude odometry topic")
+      ("odom-delta-topic", bpo::value<std::vector<std::string>>()->default_value({"/rmp400/PoseInfuse","/rmp440/PoseInfuse"}), "Delta odometry topic")
       ;
 
     // Backend options will be hidden from the user
@@ -117,14 +112,14 @@ int main(int argc, char **argv)
 
     // All options, used for parsing
     bpo::options_description all("General options");
-    all.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(backend).add(odomDelta).add(odomAttitude);
+    all.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(backend).add(odomDelta);
     all.add_options()
       ("help,h", "Display help")
       ;
 
     // Only the options that should be visible to the user
     bpo::options_description visible("General options");
-    visible.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(odomDelta).add(odomAttitude);
+    visible.add(extraction).add(velodyne).add(cam).add(odom).add(tokamak).add(gps).add(odomDelta);
     visible.add_options()
       ("help,h", "Display help")
       ;
@@ -287,33 +282,18 @@ int main(int argc, char **argv)
     }
 
     // Process odo_delta data
-    if (vm["odom-delta"].as<bool>())
+    if (vm["all"].as<bool>() or vm["odom-delta"].as<bool>())
     {
-      // Create the extractor and extract tokamak poses.
-      bfs::path odo_delta_output_dir = output_dir / "odo_delta";
-      infuse_debug_tools::PoseExtractor pose_extractor{
+      // Create the extractor and extract delta rmp poses
+      bfs::path odo_delta_output_dir = output_dir / "odom_delta";
+      infuse_debug_tools::DeltaOdometryExtractor odom_extractor{
           odo_delta_output_dir.string(),
           vm["bags"].as<std::vector<std::string>>(),
           vm["odom-delta-topic"].as<std::vector<std::string>>(),
-          "odo_delta"
+          "odom_delta"
       };
-      pose_extractor.Extract();
+      odom_extractor.Extract();
     }
-
-    // Process odo_attitude data
-    if (vm["odom-attitude"].as<bool>())
-    {
-      // Create the extractor and extract tokamak poses.
-      bfs::path odo_attitude_output_dir = output_dir / "odo_attitude";
-      infuse_debug_tools::PoseExtractor pose_extractor{
-          odo_attitude_output_dir.string(),
-          vm["bags"].as<std::vector<std::string>>(),
-          vm["odom-attitude-topic"].as<std::vector<std::string>>(),
-          "odo_attitude"
-      };
-      pose_extractor.Extract();
-    }
-
   } catch (const bpo::error &ex) {
     std::cerr << ex.what() << '\n';
     return 1;

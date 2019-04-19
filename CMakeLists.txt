@@ -41,6 +41,7 @@ add_library(infuse_debug_tools
     src/ImagePairMatcher.cpp
 	src/GpsExtractor.cpp
     src/OdometryExtractor.cpp
+    src/DeltaOdometryExtractor.cpp
 )
 target_include_directories(infuse_debug_tools
 	PUBLIC
