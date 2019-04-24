@@ -6,6 +6,7 @@ import subprocess
 from shutil import copyfile
 import sh
 from io import StringIO
+import signal
 
 def list_data_files(path):
 
@@ -25,11 +26,14 @@ def list_data_files(path):
 
 def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
 
+    if source_dir[-1] == '/':
+        source_dir = source_dir[:-1]
     folder_name = os.path.split(source_dir)[1] + suffix
     output_dir = os.path.join(output_dir, folder_name)
 
     files = list_data_files(source_dir)
     bags = [os.path.join(source_dir, f) for f in files[1]]
+    bags.sort()
 
     print("Creating output directory...", end=" ")
     if not os.path.isdir(output_dir):
@@ -42,17 +46,38 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
                  os.path.join(output_dir, f))
     print("Done")
 
-    print("Executing infuse_data_extractor...")
-    command = sh.Command("infuse_data_extractor")
-    command("-a", os.path.join(output_dir, rawdata_subdir), bags)
-    print("Done")
+    try:
 
-    # print("Executing infuse_data_extractor...")
-    # command = sh.Command("infuse_stereo_extractor")
-    # command("-a", os.path.join(output_dir, rawdata_subdir), bags)
-    # print("Done")
+        print("Executing infuse_data_extractor...")
+        command = sh.Command("infuse_data_extractor")
+        command = command.bake(_out="infuse_data_extractor_stdout.txt",
+                               _err="infuse_data_extractor_stderr.txt")
+        command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        print("Done")
 
+        # print("Executing infuse_stereo_matching...")
+        # command = sh.Command("infuse_stereo_matching")
+        # command = command.bake(_out="infuse_stereo_matching_stdout.txt",
+        #                        _err="infuse_stereo_matching_stderr.txt")
+        # command("-n", "--nav_calibration_file_path", os.path.join(source_dir, "navcam-calibration.yaml"),
+        #         os.path.join(output_dir, rawdata_subdir), bags)
+        # print("Done")
 
+        # print("Executing infuse_stereo_matching...")
+        # command = sh.Command("infuse_stereo_matching")
+        # command = command.bake(_out="infuse_stereo_matching_stdout.txt",
+        #                        _err="infuse_stereo_matching_stderr.txt")
+        # # command("-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
+        # #         "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
+        # #         "-n", "--nav_calibration_file_path",  os.path.join(source_dir, "navcam-calibration.yaml"),
+        # #         os.path.join(output_dir, rawdata_subdir), bags)
+        # command("-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
+        #         "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
+        #         os.path.join(output_dir, rawdata_subdir), bags)
+        # print("Done")
+
+    except Exception as e:
+        print("Bag extraction failed : ", e, "\nSkipping.")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("destination_directory", type=str,
@@ -64,9 +89,11 @@ parser.add_argument("-r","--rawdata-folder-name", type=str,
                     help="Name of subdirectory in which raw data will be saved")
 args = parser.parse_args()
 
-folder_names = []
-for path in args.source_directories:
-    folder_names.append(os.path.split(path)[1])
+# folder_names = []
+# for path in args.source_directories:
+#     if path[-1] == '/':
+#         path = path[:-1]
+#     folder_names.append(os.path.split(path)[1])
 
 print("Will now extract data from these folders :")
 for d in args.source_directories:
