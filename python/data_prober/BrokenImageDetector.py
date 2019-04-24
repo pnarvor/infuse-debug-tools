@@ -24,11 +24,11 @@ class BrokenImageDetector:
          filenames.sort()
         
          self.score_list = []
-         print("computing scores :")
+         # print("computing scores :")
          for filename in filenames:
          # for filename in itertools.islice(filenames, 500, 1000):
          # for filename in itertools.islice(filenames, 491, 492):
-             print("    " + filename)
+             # print("    " + filename)
              img = imread(path + filename, mode='F')
              self.score_list.append(self.compute_score(img))
    
@@ -38,11 +38,11 @@ class BrokenImageDetector:
 
     def compute_score(self, img):
 
-        img_left = img[:,0:img.shape[1] / 2]
+        img_left = img[:,0:int(img.shape[1] / 2)]
         edge_left = self.edge_detector(img_left)
         score_left = self.thresholding(edge_left)
 
-        img_right = img[:,img.shape[1] / 2:]
+        img_right = img[:,int(img.shape[1] / 2):]
         edge_right = self.edge_detector(img_right)
         score_right = self.thresholding(edge_right)
 
