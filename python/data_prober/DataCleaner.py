@@ -1,6 +1,25 @@
 import os
 import numpy as np
-from Metadata import Metadata
+import io
+
+from .Metadata import Metadata
+
+def get_pcd_header(filename):
+
+    res = ""
+    pcdFile = io.open(filename, "rb")
+    fileBuffer = io.BufferedReader(pcdFile, buffer_size=1)
+    # textReader = io.TextIOWrapper(fileBuffer, encoding="ascii")
+    textReader = io.TextIOWrapper(pcdFile, encoding="ascii", errors='backslashreplace')
+   
+    for i in range(400):
+        try:
+            res += textReader.read(1)
+        except Exception as e:
+            print(e) 
+            break
+    
+    return res
 
 class DataCleaner:
     
@@ -17,8 +36,8 @@ class DataCleaner:
         self.frontRightDataFilename                = "front_cam/right/right_all_metadata.txt"
         self.frontRightIntegrityDataFormatFilename = "front_cam/right/image_integrity_dataformat.txt"
         self.frontRightIntegrityDataFilename       = "front_cam/right/image_integrity.txt"
-        self.frontDisparityDataFormatFilename      = "stereo/front_disparity/disparity_dataformat.txt"
-        self.frontDisparityDataFilename            = "stereo/front_disparity/disparity_all_metadata.txt"
+        self.frontDisparityDataFormatFilename      = "front_disparity/disparity_dataformat.txt"
+        self.frontDisparityDataFilename            = "front_disparity/disparity_all_metadata.txt"
 
         # Rear cam raw files
         self.rearLeftDataFormatFilename           = "rear_cam/left/left_dataformat.txt"
@@ -29,8 +48,8 @@ class DataCleaner:
         self.rearRightDataFilename                = "rear_cam/right/right_all_metadata.txt"
         self.rearRightIntegrityDataFormatFilename = "rear_cam/right/image_integrity_dataformat.txt"
         self.rearRightIntegrityDataFilename       = "rear_cam/right/image_integrity.txt"
-        self.rearDisparityDataFormatFilename      = "stereo/rear_disparity/disparity_dataformat.txt"
-        self.rearDisparityDataFilename            = "stereo/rear_disparity/disparity_all_metadata.txt"
+        self.rearDisparityDataFormatFilename      = "rear_disparity/disparity_dataformat.txt"
+        self.rearDisparityDataFilename            = "rear_disparity/disparity_all_metadata.txt"
 
         # Nav cam raw files
         self.navLeftDataFormatFilename           = "nav_cam/left/left_dataformat.txt"
@@ -41,8 +60,8 @@ class DataCleaner:
         self.navRightDataFilename                = "nav_cam/right/right_all_metadata.txt"
         self.navRightIntegrityDataFormatFilename = "nav_cam/right/image_integrity_dataformat.txt"
         self.navRightIntegrityDataFilename       = "nav_cam/right/image_integrity.txt"
-        self.navDisparityDataFormatFilename      = "stereo/nav_disparity/disparity_dataformat.txt"
-        self.navDisparityDataFilename            = "stereo/nav_disparity/disparity_all_metadata.txt"
+        self.navDisparityDataFormatFilename      = "nav_disparity/disparity_dataformat.txt"
+        self.navDisparityDataFilename            = "nav_disparity/disparity_all_metadata.txt"
 
         #GPS raw files
         self.gpsDataFormatFilename      = "gps/gps_pose_info_dataformat.txt"
@@ -96,6 +115,14 @@ class DataCleaner:
         self.navRightIntegrity     = np.empty([0])
         self.navTotalScore         = np.empty([0])
 
+        # Velodyne
+        self.dataVelodyne      = Metadata()
+        self.velodyneMinTime   = -1
+        self.velodyneCloudTime = np.empty([0])
+        self.velodynePeriod    = np.empty([0])
+        self.velodyneDesync    = np.empty([0])
+        self.velodyneNbPoints  = np.empty([0])
+
         # GPS
         self.dataGPS   = Metadata()
         self.gpsTime   = np.empty([0])
@@ -122,13 +149,6 @@ class DataCleaner:
         self.tokamakZ      = np.empty([0])
         self.tokamakPeriod = np.empty([0])
         self.tokamakSpeed  = np.empty([0])
-
-        # Velodyne
-        self.dataVelodyne      = Metadata()
-        self.velodyneCloudTime = np.empty([0])
-        self.velodynePeriod    = np.empty([0])
-        self.velodyneDesync    = np.empty([0])
-        self.velodyneNbPoints  = np.empty([0])
 
     # Stereo desync #################################### 
     def compute_front_stereo_desync(self):
@@ -300,21 +320,22 @@ class DataCleaner:
 
         pointCount = []
         for filename in filenames:
-            pcdFile = open(self.dataRootDir + self.velodynePCDPath + filename, "r")
-            lineCount = 0
-            # while lineCount < 10:
-            while lineCount < 9:
-                line = pcdFile.readline()
-                print(line)
-                if line.split(" ")[0] == "POINTS":
-                    pointCount.append(int(line.split(" ")[1]))
-                    break
-                lineCount += 1
-            if lineCount >= 9:
-                print("Error reading " + self.dataRootDir + self.velodynePCDPath + filename + ". File corrupted.\n")
+
+            try:
+                pcdHeadLines = get_pcd_header(self.dataRootDir + self.velodynePCDPath + filename).split("\n")
+                if not any(["POINTS" in line.split(" ")[0] for line in pcdHeadLines]):
+                    raise Exception("No POINTS metadata in \"",self.dataRootDir + self.velodynePCDPath + filename,"\" file header")
+                for line in pcdHeadLines:
+                    words = line.split(" ")
+                    if "POINTS" in words[0]:
+                        pointCount.append(float(words[1]))
+                
+            except Exception as e:
+                print("Could not get pcd file header : ", e) 
                 pointCount.append(0)
         
         self.velodyneNbPoints = np.array(pointCount)
+        self.velodyneMinTime  = self.velodyneCloudTime[0]
 
     def start_mission_time(self):
 
@@ -325,6 +346,9 @@ class DataCleaner:
             times.append(self.rearMinTime)
         if self.navMinTime > 0:
             times.append(self.navMinTime)
+        if self.velodyneMinTime > 0:
+            times.append(self.velodyneMinTime)
 
         return min(times)
+
         
