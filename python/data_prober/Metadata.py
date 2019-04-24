@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from MetadataFormat import MetadataFormat
+from .MetadataFormat import MetadataFormat
 
 class Metadata:
 

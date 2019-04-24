@@ -1,6 +1,6 @@
 import numpy as np
 
-from Metadata import Metadata
+from .Metadata import Metadata
 from collections import OrderedDict
 from statistics import median
 
