@@ -52,7 +52,9 @@ int main(int argc, char **argv)
       ("xratio", bpo::value<std::int16_t>()->default_value(3), "Degradation ratio to be applied over the x-axis")
       ("yratio", bpo::value<std::int16_t>()->default_value(3), "Degradation ratio to be applied over the y-axis")
       ("scaling", bpo::value<std::double_t>()->default_value(0), "Free scaling parameter")
-      ("calibration_file_path", bpo::value<std::string>()->default_value(" "), "Path to the calibration file")
+      ("nav_calibration_file_path", bpo::value<std::string>()->default_value(" "), "Path to the Navcam calibration file")
+      ("front_calibration_file_path", bpo::value<std::string>()->default_value(" "), "Path to the Frontcam calibration file")
+      ("rear_calibration_file_path", bpo::value<std::string>()->default_value(" "), "Path to the Rearcam calibration file")
       ;
 
     bpo::options_description matcher{"Stereo matching specific options"};
@@ -195,29 +197,84 @@ int main(int argc, char **argv)
     matching_parameters.filter.sigma_color = vm["sigma_color"].as<std::double_t>();
 #endif
 
-    // Fill the rectification stereo parameters struct
-    infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
-    rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
-    rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
-    rect_parameters.scaling = vm["scaling"].as<std::double_t>();
-    rect_parameters.calibration_file_path = vm["calibration_file_path"].as<std::string>();
+    //// Fill the rectification stereo parameters struct
+    //// ONE CALIBRATION FILE FOR ALL CAMERAS ???
+    //infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
+    //rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
+    //rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
+    //rect_parameters.scaling = vm["scaling"].as<std::double_t>();
+    //rect_parameters.calibration_file_path = vm["calibration_file_path"].as<std::string>();
 
-    // Process camera data
-    std::array<std::string, 3> cam_names = {"front", "nav", "rear"};
-    for (const auto & cam_name : cam_names) {
-      if (vm["all"].as<bool>() or vm[cam_name].as<bool>()) {
-        // Create the cam matcher and process stereo matching.
-        bfs::path disparity_output_dir = output_dir / (cam_name + "_disparity");
-        infuse_debug_tools::ImagePairMatcher cam_matcher{
-          disparity_output_dir.string(),
-          vm["bags"].as<std::vector<std::string>>(),
-          vm[cam_name + "-topic"].as<std::string>(),
-          vm[cam_name + "-ext"].as<std::string>(),
-          matching_parameters,
-          rect_parameters
-        };
-        cam_matcher.Match();
-      }
+    //// Process camera data
+    //std::array<std::string, 3> cam_names = {"front", "nav", "rear"};
+    //for (const auto & cam_name : cam_names) {
+    //  if (vm["all"].as<bool>() or vm[cam_name].as<bool>()) {
+    //    // Create the cam matcher and process stereo matching.
+    //    bfs::path disparity_output_dir = output_dir / (cam_name + "_disparity");
+    //    infuse_debug_tools::ImagePairMatcher cam_matcher{
+    //      disparity_output_dir.string(),
+    //      vm["bags"].as<std::vector<std::string>>(),
+    //      vm[cam_name + "-topic"].as<std::string>(),
+    //      vm[cam_name + "-ext"].as<std::string>(),
+    //      matching_parameters,
+    //      rect_parameters
+    //    };
+    //    cam_matcher.Match();
+    //  }
+    //}
+    if (vm["all"].as<bool>() or vm["nav"].as<bool>()) {
+      // Create the cam matcher and process stereo matching.
+      infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
+      rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
+      rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
+      rect_parameters.scaling = vm["scaling"].as<std::double_t>();
+      rect_parameters.calibration_file_path = vm["nav_calibration_file_path"].as<std::string>();
+      bfs::path disparity_output_dir = output_dir / ("nav_disparity");
+      infuse_debug_tools::ImagePairMatcher cam_matcher{
+        disparity_output_dir.string(),
+        vm["bags"].as<std::vector<std::string>>(),
+        vm["nav-topic"].as<std::string>(),
+        vm["nav-ext"].as<std::string>(),
+        matching_parameters,
+        rect_parameters
+      };
+      cam_matcher.Match();
+    }
+    if (vm["all"].as<bool>() or vm["front"].as<bool>()) {
+      // Create the cam matcher and process stereo matching.
+      infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
+      rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
+      rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
+      rect_parameters.scaling = vm["scaling"].as<std::double_t>();
+      rect_parameters.calibration_file_path = vm["front_calibration_file_path"].as<std::string>();
+      bfs::path disparity_output_dir = output_dir / ("front_disparity");
+      infuse_debug_tools::ImagePairMatcher cam_matcher{
+        disparity_output_dir.string(),
+        vm["bags"].as<std::vector<std::string>>(),
+        vm["front-topic"].as<std::string>(),
+        vm["front-ext"].as<std::string>(),
+        matching_parameters,
+        rect_parameters
+      };
+      cam_matcher.Match();
+    }
+    if (vm["all"].as<bool>() or vm["rear"].as<bool>()) {
+      // Create the cam matcher and process stereo matching.
+      infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
+      rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
+      rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
+      rect_parameters.scaling = vm["scaling"].as<std::double_t>();
+      rect_parameters.calibration_file_path = vm["rear_calibration_file_path"].as<std::string>();
+      bfs::path disparity_output_dir = output_dir / ("rear_disparity");
+      infuse_debug_tools::ImagePairMatcher cam_matcher{
+        disparity_output_dir.string(),
+        vm["bags"].as<std::vector<std::string>>(),
+        vm["rear-topic"].as<std::string>(),
+        vm["rear-ext"].as<std::string>(),
+        matching_parameters,
+        rect_parameters
+      };
+      cam_matcher.Match();
     }
 
   } catch (const bpo::error &ex) {

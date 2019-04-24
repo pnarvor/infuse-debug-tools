@@ -457,7 +457,8 @@ void ImagePairMatcher::ProcessStereoRectification(asn1SccFramePair& in_original_
         _yratio = rect_parameters_.yratio;
         _scaling = rect_parameters_.scaling;
 
-        cv::FileStorage fs( _calibration_file_path + "/" + _sensor_id_left + std::string("-") + _sensor_id_right + ".yml", cv::FileStorage::READ );
+        //cv::FileStorage fs( _calibration_file_path + "/" + _sensor_id_left + std::string("-") + _sensor_id_right + ".yml", cv::FileStorage::READ );
+        cv::FileStorage fs( _calibration_file_path, cv::FileStorage::READ );
         if( fs.isOpened() ){
             cv::Size image_size;
             cv::Mat1d camera_matrix_L;
@@ -498,7 +499,9 @@ void ImagePairMatcher::ProcessStereoRectification(asn1SccFramePair& in_original_
         }
         else{
             _initialized = false;
-            std::cerr << "Can't open the calibration file: " << _calibration_file_path + "/" + _sensor_id_left + std::string("-") + _sensor_id_right + ".yml" << std::endl;
+            //std::cerr << "Can't open the calibration file: " << _calibration_file_path + "/" + _sensor_id_left + std::string("-") + _sensor_id_right + ".yml" << std::endl;
+            std::cerr << "Can't open the calibration file: "
+                      << _calibration_file_path << std::endl;
         }
     }
 
