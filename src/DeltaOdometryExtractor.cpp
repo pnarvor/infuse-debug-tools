@@ -200,16 +200,18 @@ namespace infuse_debug_tools
 
     void DeltaOdometryExtractor::ComputeDelta()
     {
-        asn1_pose_ptr_->metadata.parentFrameId = asn1_pose_ptr_->metadata.childFrameId;
-        asn1_pose_ptr_->metadata.parentTime = last_pose_ptr_->metadata.childTime;
-        
-        // delta translation
-        asn1_pose_ptr_->data.translation.arr[0] -= last_pose_ptr_->data.translation.arr[0];
-        asn1_pose_ptr_->data.translation.arr[1] -= last_pose_ptr_->data.translation.arr[1];
-        asn1_pose_ptr_->data.translation.arr[2] -= last_pose_ptr_->data.translation.arr[2];
+        //delta translation
+        Eigen::Vector3d t0, t1, dt;
+        t0[0] = last_pose_ptr_->data.translation.arr[0];
+        t0[1] = last_pose_ptr_->data.translation.arr[1];
+        t0[2] = last_pose_ptr_->data.translation.arr[2];
 
-        // delta translation
-        Eigen::Quaternion<double> q0, q1, q;
+        t1[0] = asn1_pose_ptr_->data.translation.arr[0];
+        t1[1] = asn1_pose_ptr_->data.translation.arr[1];
+        t1[2] = asn1_pose_ptr_->data.translation.arr[2];
+
+        // delta rotation
+        Eigen::Quaternion<double> q0, q1, dq;
         q0.x() = last_pose_ptr_->data.orientation.arr[0];
         q0.y() = last_pose_ptr_->data.orientation.arr[1];
         q0.z() = last_pose_ptr_->data.orientation.arr[2];
@@ -220,11 +222,23 @@ namespace infuse_debug_tools
         q1.z() = asn1_pose_ptr_->data.orientation.arr[2];
         q1.w() = asn1_pose_ptr_->data.orientation.arr[3];
 
-        q = q1*q0.inverse();
+        // Computing delta
+        dt = q0.inverse()*(t1 - t0);
+        dq = q1*q0.inverse();
 
-        asn1_pose_ptr_->data.orientation.arr[0] = q.x();
-        asn1_pose_ptr_->data.orientation.arr[1] = q.y();
-        asn1_pose_ptr_->data.orientation.arr[2] = q.z();
-        asn1_pose_ptr_->data.orientation.arr[3] = q.w();
+        asn1_pose_ptr_->metadata.parentFrameId = asn1_pose_ptr_->metadata.childFrameId;
+        asn1_pose_ptr_->metadata.parentTime = last_pose_ptr_->metadata.childTime;
+
+        *last_pose_ptr_ = *asn1_pose_ptr_;
+        
+        // delta translation
+        asn1_pose_ptr_->data.translation.arr[0] = dt[0];
+        asn1_pose_ptr_->data.translation.arr[1] = dt[1];
+        asn1_pose_ptr_->data.translation.arr[2] = dt[2];
+
+        asn1_pose_ptr_->data.orientation.arr[0] = dq.x();
+        asn1_pose_ptr_->data.orientation.arr[1] = dq.y();
+        asn1_pose_ptr_->data.orientation.arr[2] = dq.z();
+        asn1_pose_ptr_->data.orientation.arr[3] = dq.w();
     }
 }
