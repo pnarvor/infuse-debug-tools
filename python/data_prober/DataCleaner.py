@@ -5,6 +5,7 @@ from pyquaternion import Quaternion
 from scipy.signal import medfilt
 
 from .Metadata import Metadata
+from .InfuseTransform import InfuseTransform
 
 def get_pcd_header(filename):
 
@@ -80,50 +81,60 @@ class DataCleaner:
         #Tokamak raw files
         self.tokamakDataFormatFilename   = os.path.join(self.dataRootDir, "tokamak/dataformat.txt")
         self.tokamakDataFilename         = os.path.join(self.dataRootDir, "tokamak/tokamak.txt")
+        self.headingFilename             = os.path.join(self.dataRootDir, "../test_parking.txt")
         #Velodyne raw files
         self.velodyneDataFormatFilename  = os.path.join(self.dataRootDir, "velodyne/dataformat.txt")
         self.velodyneDataFilename        = os.path.join(self.dataRootDir, "velodyne/all_metadata.txt")
         self.velodynePCDPath             = os.path.join(self.dataRootDir, "velodyne/data/")
 
+        self.hasFrontData            = False
         self.dataFrontLeft           = Metadata()
         self.dataFrontRight          = Metadata()
         self.dataFrontDisparity      = Metadata()
         self.dataFrontLeftIntegrity  = Metadata()
         self.dataFrontRightIntegrity = Metadata()
         self.frontStereoDesync       = np.empty([0])
-        self.frontStereoStamp        = np.empty([0])
+        self.frontStereoStamps       = np.empty([0])
         self.frontMinTime            = -1
         self.frontDisparityScore     = np.empty([0])
         self.frontLeftIntegrity      = np.empty([0])
         self.frontRightIntegrity     = np.empty([0])
+        self.frontTotalScore         = np.empty([0])
+        self.frontRightToLeft        = InfuseTransform()
 
+        self.hasRearData            = False
         self.dataRearLeft           = Metadata()
         self.dataRearRight          = Metadata()
         self.dataRearDisparity      = Metadata()
         self.dataRearLeftIntegrity  = Metadata()
         self.dataRearRightIntegrity = Metadata()
         self.rearStereoDesync       = np.empty([0])
-        self.rearStereoStamp        = np.empty([0])
+        self.rearStereoStamps       = np.empty([0])
         self.rearMinTime            = -1
         self.rearDisparityScore     = np.empty([0])
         self.rearLeftIntegrity      = np.empty([0])
         self.rearRightIntegrity     = np.empty([0])
+        self.rearTotalScore         = np.empty([0])
+        self.rearRightToLeft        = InfuseTransform()
 
+        self.hasNavData            = False
         self.dataNavLeft           = Metadata()
         self.dataNavRight          = Metadata()
         self.dataNavDisparity      = Metadata()
         self.dataNavLeftIntegrity  = Metadata()
         self.dataNavRightIntegrity = Metadata()
         self.navStereoDesync       = np.empty([0])
-        self.navStereoStamp        = np.empty([0])
+        self.navStereoStamps       = np.empty([0])
         self.navMinTime            = -1
         self.navDisparityScore     = np.empty([0])
         self.navLeftIntegrity      = np.empty([0])
         self.navRightIntegrity     = np.empty([0])
         self.navTotalScore         = np.empty([0])
+        self.navRightToLeft        = InfuseTransform()
         self.navPositionDiff       = np.empty([0])
 
         # Velodyne
+        self.hasVelodyneData   = False
         self.dataVelodyne      = Metadata()
         self.velodyneMinTime   = -1
         self.velodyneCloudTime = np.empty([0])
@@ -149,7 +160,7 @@ class DataCleaner:
         self.odometryPeriod = np.empty([0])
         self.odometrySpeed  = np.empty([0])
 
-        # Odometry
+        # Delta odometry
         self.dataDeltaOdometry        = Metadata()
         self.deltaOdometryTime        = np.empty([0])
         self.deltaOdometryX           = np.empty([0])
@@ -170,6 +181,9 @@ class DataCleaner:
         self.tokamakPeriod = np.empty([0])
         self.tokamakSpeed  = np.empty([0])
 
+        # Others
+        self.odoFrameToGTF  = InfuseTransform()
+
     # Stereo desync #################################### 
     def compute_front_stereo_desync(self):
         
@@ -179,10 +193,11 @@ class DataCleaner:
         except:
             print("No front_cam metadata")
             return
-
+        
         self.frontStereoDesync = np.abs(self.dataFrontRight.get_nparray('timestamp') - self.dataFrontLeft.get_nparray('timestamp'))
         self.frontStereoStamps = self.dataFrontLeft.get_nparray('timestamp')
         self.frontMinTime = self.frontStereoStamps[0]
+        self.hasFrontData = True
         
     def compute_rear_stereo_desync(self):
         
@@ -196,6 +211,7 @@ class DataCleaner:
         self.rearStereoDesync = np.abs(self.dataRearRight.get_nparray('timestamp') - self.dataRearLeft.get_nparray('timestamp'))
         self.rearStereoStamps = self.dataRearLeft.get_nparray('timestamp')
         self.rearMinTime = self.rearStereoStamps[0]
+        self.hasRearData = True
 
     def compute_nav_stereo_desync(self):
 
@@ -209,6 +225,7 @@ class DataCleaner:
         self.navStereoDesync = np.abs(self.dataNavRight.get_nparray('timestamp') - self.dataNavLeft.get_nparray('timestamp'))
         self.navStereoStamps = self.dataNavLeft.get_nparray('timestamp')
         self.navMinTime = self.navStereoStamps[0]
+        self.hasNavData = True
        
     # Stereo desync #################################### 
     def compute_front_disparity_score(self):
@@ -353,7 +370,7 @@ class DataCleaner:
     def compute_odometry(self):
 
         try:
-            self.dataOdometry.parse_metadata(self.odometryDataFormatFilename,   self.odometryDataFilename)
+            self.dataOdometry.parse_metadata(self.odometryDataFormatFilename, self.odometryDataFilename)
         except:
             print("No odometry data")
             return
@@ -439,6 +456,24 @@ class DataCleaner:
 
         self.tokamakSpeed = np.nan_to_num(np.sqrt(dx*dx + dy*dy + dz*dz) / self.tokamakPeriod)
 
+    def parse_heading_file(self):
+
+        try:
+            headingFile = open(self.headingFilename, "r")
+        except:
+            raise Exception("No heading file found at : ", self.headingFilename)
+
+        for line in headingFile:
+            if "Position given in set heading: " in line:
+                nums = line.split("Position given in set heading: ")[1].split(" ")
+                translation = np.array([float(nums[0]), float(nums[1]), float(nums[2])])
+                continue
+            if "Orientation given in set heading (quat)" in line:
+                nums = line.split("Orientation given in set heading (quat)")[1].split(" ")
+                orientation = Quaternion(float(nums[3]), float(nums[0]), float(nums[1]), float(nums[2]))
+                continue
+        self.odoFrameToGTF = InfuseTransform(translation, orientation)
+
     def compute_velodyne(self):
 
         try:
@@ -476,6 +511,7 @@ class DataCleaner:
         
         self.velodyneNbPoints = np.array(pointCount)
         self.velodyneMinTime  = self.velodyneCloudTime[0]
+        self.hasVelodyneData = True
 
     def start_mission_time(self):
 
