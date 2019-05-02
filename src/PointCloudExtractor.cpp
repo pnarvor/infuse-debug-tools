@@ -110,7 +110,7 @@ void PointCloudExtractor::Extract()
   {
     std::vector<std::string> entries{ASN1BitstreamLogger::GetPointcloudLogEntries()};
     // Add coordinates min max to the entries
-    entries.insert(entries.end(), {"min_x", "max_x", "min_y", "max_y", "min_z", "max_z"});
+    entries.insert(entries.end(), {"min_x", "max_x", "min_y", "max_y", "min_z", "max_z", "nb_points"});
     unsigned int index = 1;
     for (auto entry : entries) {
       dataformat_ofs << "# " << std::setw(2) << index << " - " << entry << '\n';
@@ -289,7 +289,7 @@ void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::P
   } catch (std::out_of_range) {
     std::cerr << "Warning: Found empty cloud (number " << pcd_count_ << ") when computing min max coordinates\n";
   }
-  metadata_ofs_ << min_x << " " << max_x << " " << min_y << " " << max_y << " " << min_z << " " << max_z;
+  metadata_ofs_ << min_x << " " << max_x << " " << min_y << " " << max_y << " " << min_z << " " << max_z << " " << pcl_cloud_ptr->size();
   metadata_ofs_ << '\n';
 
   // Log the same metadata of this cloud in a separated file
