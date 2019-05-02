@@ -237,6 +237,9 @@ private:
   //! Directories where to put the image files (set on Extract())
   boost::filesystem::path disparity_dir_;
   boost::filesystem::path disparity_data_dir_;
+  boost::filesystem::path colored_disparity_data_dir_;
+  boost::filesystem::path rect_left_data_dir_;
+  boost::filesystem::path rect_right_data_dir_;
   boost::filesystem::path disparity_metadata_dir_;
   //! Variable used to decode the ASN1 message into.
   std::unique_ptr<asn1SccFramePair> asn1_frame_pair_ptr_;

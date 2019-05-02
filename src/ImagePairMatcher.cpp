@@ -80,8 +80,11 @@ void ImagePairMatcher::Match()
   // Create output dir
   lambda_create_subdir(output_dir_);
   // Create subdirs
-  disparity_data_dir_       = lambda_create_subdir(output_dir_,   "data");
-  disparity_metadata_dir_   = lambda_create_subdir(output_dir_,   "metadata");
+  disparity_data_dir_         = lambda_create_subdir(output_dir_,   "data");
+  colored_disparity_data_dir_ = lambda_create_subdir(output_dir_,   "data_colored");
+  rect_left_data_dir_         = lambda_create_subdir(output_dir_,   "rect_left");
+  rect_right_data_dir_        = lambda_create_subdir(output_dir_,   "rect_right");
+  disparity_metadata_dir_     = lambda_create_subdir(output_dir_,   "metadata");
 
   // Fill metadata names vector
   std::vector<std::string> metadata_names;
@@ -166,8 +169,11 @@ void ImagePairMatcher::ProcessImagePair(const infuse_msgs::asn1_bitstream::Ptr& 
   ProcessStereoMatching(*asn1_frame_pair_ptr_, *out_raw_disparity_ptr_, *out_color_disparity_ptr_, metadata_values);
 
   // Write images
-//  ProcessImage(*out_raw_disparity_ptr_, disparity_data_dir_);
-  ProcessImage(*out_color_disparity_ptr_, disparity_data_dir_);
+  // ProcessImage(*out_raw_disparity_ptr_,              disparity_data_dir_);
+  // ProcessImage(*out_color_disparity_ptr_,            colored_disparity_data_dir_);
+  ProcessImage(*out_color_disparity_ptr_,            disparity_data_dir_);
+  ProcessImage(asn1_rect_out_frame_pair_ptr_->left,  rect_left_data_dir_);
+  ProcessImage(asn1_rect_out_frame_pair_ptr_->right, rect_right_data_dir_);
 
   // Write all_metadata files
   for(std::vector<int>::size_type i = 0; i != metadata_values.size(); i++) {
@@ -489,6 +495,10 @@ void ImagePairMatcher::ProcessStereoRectification(asn1SccFramePair& in_original_
             cv::Mat1d Q;
 
             cv::stereoRectify(camera_matrix_L, dist_coeffs_L, camera_matrix_R, dist_coeffs_R, image_size, R, T, RLeft, RRight, _PLeft, _PRight, Q, CV_CALIB_ZERO_DISPARITY, _scaling, newSize);
+
+            std::cout << "Pleft :\n" << _PLeft << std::endl;
+            std::cout << "Pright :\n" << _PRight << std::endl;
+            std::cout << "Q :\n" << Q << std::endl << std::endl;
 
             cv::initUndistortRectifyMap(camera_matrix_L, dist_coeffs_L, RLeft, _PLeft, newSize, CV_32F, _lmapx, _lmapy);
             cv::initUndistortRectifyMap(camera_matrix_R, dist_coeffs_R, RRight, _PRight, newSize, CV_32F, _rmapx, _rmapy);
