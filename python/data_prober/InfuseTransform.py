@@ -23,3 +23,8 @@ class InfuseTransform:
         else:
             raise Exception("Type not handled by __mul__")
 
+    def inverse(self):
+
+        return InfuseTransform(-(self.orientation.inverse.rotate(self.translation)),
+                               self.orientation.inverse)
+
