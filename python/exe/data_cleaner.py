@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from data_prober import DataCleaner
 
 # Mana :
-# dataRootDir = '
+# dataRootDir = '/media/Nephelae-Data/data/M3-mission/mana/log_data_acquisition_2018_11_29_14_49_58_raw/raw_data/'
+# dataRootDir = '/media/Nephelae-Data/data/M3-mission/mana/log_data_acquisition_2018_12_05_13_49_09_raw/raw_data/'
 
 # Minnie :
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie/log_data_acquisition_2018_11_29_15_02_05_raw/raw_data/'
@@ -229,6 +230,24 @@ axes[2].set_xlabel("Mission time (s)")
 axes[2].set_ylabel("Nb points / cloud")
 axes[2].grid()
 
+fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+axes[0].plot(dataCleaner.velodynePeriod / 1000.0, label="Velodyne period")
+axes[0].legend(loc="upper right")
+axes[2].set_xlabel("Cloud number")
+axes[0].set_ylabel("Period (ms)")
+axes[0].grid()
+axes[1].plot(np.abs(dataCleaner.velodyneDesync / 1000.0), label="Velodyne desync / associated pose")
+axes[1].legend(loc="upper right")
+axes[2].set_xlabel("Cloud number")
+axes[1].set_ylabel("Desync (ms)")
+axes[1].grid()
+axes[2].plot(dataCleaner.velodyneNbPoints, label="Velodyne nb points")
+axes[2].plot(DataCleaner.spike_detector_filter(dataCleaner.velodyneNbPoints), label="Velodyne nb points filtered")
+axes[2].legend(loc="upper right")
+axes[2].set_xlabel("Cloud number")
+axes[2].set_ylabel("Nb points / cloud")
+axes[2].grid()
+
 # All
 fig, axes = plt.subplots(7,1, sharex=True, sharey=False)
 # axes[0].plot((dataCleaner.navStereoStamps - t0) / 1000000.0, dataCleaner.navDisparityScore, label="Nav % uncorrelated pixels")
@@ -289,8 +308,8 @@ axes.plot(dataCleaner.gpsX - dataCleaner.gpsX[0],
           dataCleaner.gpsY - dataCleaner.gpsY[0], label="GPS")
 axes.plot(dataCleaner.odometryX - dataCleaner.odometryX[0],
           dataCleaner.odometryY - dataCleaner.odometryY[0], label="Odometry")
-# axes.plot(dataCleaner.deltaOdometryIntegratedX - dataCleaner.deltaOdometryIntegratedX[0],
-#           dataCleaner.deltaOdometryIntegratedY - dataCleaner.deltaOdometryIntegratedY[0], label="Delta odometry (integrated)")
+axes.plot(dataCleaner.deltaOdometryIntegratedX - dataCleaner.deltaOdometryIntegratedX[0],
+          dataCleaner.deltaOdometryIntegratedY - dataCleaner.deltaOdometryIntegratedY[0], label="Delta odometry (integrated)")
 axes.plot(dataCleaner.tokamakX - dataCleaner.tokamakX[0],
           dataCleaner.tokamakY - dataCleaner.tokamakY[0], label="Tokamak")
 axes.legend(loc="upper right")
