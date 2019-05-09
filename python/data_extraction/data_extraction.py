@@ -48,27 +48,35 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
 
     try:
 
-        print("Executing infuse_data_extractor...")
-        command = sh.Command("infuse_data_extractor")
-        command = command.bake(_out="infuse_data_extractor_stdout.txt",
-                               _err="infuse_data_extractor_stderr.txt")
-        command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
-        print("Done")
+        # print("Executing infuse_data_extractor...")
+        # command = sh.Command("infuse_data_extractor")
+        # command = command.bake(_out="infuse_data_extractor_stdout.txt",
+        #                        _err="infuse_data_extractor_stderr.txt")
+        # command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        # print("Done")
 
-        print("Computing integrity of images")
-        command = sh.Command(os.path.join(os.path.realpath(__file__), "../../exe/infuse_image_integrity_extractor.py"))
-        command = command.bake(_out="infuse_image_integrity_extractor_stdout.txt",
-                               _err="infuse_image_integrity_extractor_stderr.txt")
-        command("-a", os.path.join(output_dir, rawdata_subdir))
-        print("Done")
+        # print("Computing integrity of images")
+        # command = sh.Command(os.path.join(os.path.realpath(__file__), "../../exe/infuse_image_integrity_extractor.py"))
+        # command = command.bake(_out="infuse_image_integrity_extractor_stdout.txt",
+        #                        _err="infuse_image_integrity_extractor_stderr.txt")
+        # command("-a", os.path.join(output_dir, rawdata_subdir))
+        # print("Done")
 
         print("Executing infuse_stereo_matching...")
         command = sh.Command("infuse_stereo_matching")
         command = command.bake(_out="infuse_stereo_matching_stdout.txt",
                                _err="infuse_stereo_matching_stderr.txt")
-        command("-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
-                "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
-                "-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
+        # command("-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
+        #         "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
+        #         "-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
+        #         os.path.join(output_dir, rawdata_subdir), bags)
+        # command(
+        #         "-n", "--disp12_max_diff=-1",
+        #         "--uniqueness_ratio=15",
+        #         "--block_size=1",
+        #         "--nav_calibration_file_path",  os.path.join(source_dir, "navcam-calibration.yaml"),
+        #         os.path.join(output_dir, rawdata_subdir), bags)
+        command("-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
                 os.path.join(output_dir, rawdata_subdir), bags)
         print("Done")
 
