@@ -56,6 +56,9 @@ void ImagePairMatcher::Match()
   // Vector of topics used to create a view on the bag
   std::vector<std::string> topics = {image_topic_};
 
+  if(bag_paths_.size() <= 0)
+      cout << "Warning : no bags to extract." << endl;
+
   // Get the number of messages to process
   size_t n_images = 0;
   for (auto bag_path : bag_paths_) {
@@ -273,19 +276,19 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
     // Using Algorithm StereoSGBM
     else if(matching_parameters_.stereoMatcher.algorithm == 1)
     {
-        auto& mp = matching_parameters_;
-        cout << "Using StereoSGBM" << endl;
-        cout<<endl<<"min_disparity;     : "<<mp.stereoMatcher.min_disparity;
-        cout<<endl<<"num_disparities;   : "<<mp.stereoMatcher.num_disparities; 
-        cout<<endl<<"block_size;        : "<<mp.stereoMatcher.block_size;
-        cout<<endl<<"sgbm_params.P1;    : "<<mp.stereoMatcher.sgbm_params.P1; 
-        cout<<endl<<"sgbm_params.P2;    : "<<mp.stereoMatcher.sgbm_params.P2; 
-        cout<<endl<<"disp12_max_diff;   : "<<mp.stereoMatcher.disp12_max_diff; 
-        cout<<endl<<"pre_filter_cap;    : "<<mp.stereoMatcher.pre_filter_cap;
-        cout<<endl<<"uniqueness_ratio;  : "<<mp.stereoMatcher.uniqueness_ratio; 
-        cout<<endl<<"speckle_window_siz : "<<mp.stereoMatcher.speckle_window_size; 
-        cout<<endl<<"speckle_range;     : "<<mp.stereoMatcher.speckle_range;
-        cout<<endl<<"sgbm_params.mode;  : "<<mp.stereoMatcher.sgbm_params.mode;
+        //auto& mp = matching_parameters_;
+        //cout << "Using StereoSGBM" << endl;
+        //cout<<endl<<"min_disparity;     : "<<mp.stereoMatcher.min_disparity;
+        //cout<<endl<<"num_disparities;   : "<<mp.stereoMatcher.num_disparities; 
+        //cout<<endl<<"block_size;        : "<<mp.stereoMatcher.block_size;
+        //cout<<endl<<"sgbm_params.P1;    : "<<mp.stereoMatcher.sgbm_params.P1; 
+        //cout<<endl<<"sgbm_params.P2;    : "<<mp.stereoMatcher.sgbm_params.P2; 
+        //cout<<endl<<"disp12_max_diff;   : "<<mp.stereoMatcher.disp12_max_diff; 
+        //cout<<endl<<"pre_filter_cap;    : "<<mp.stereoMatcher.pre_filter_cap;
+        //cout<<endl<<"uniqueness_ratio;  : "<<mp.stereoMatcher.uniqueness_ratio; 
+        //cout<<endl<<"speckle_window_siz : "<<mp.stereoMatcher.speckle_window_size; 
+        //cout<<endl<<"speckle_range;     : "<<mp.stereoMatcher.speckle_range;
+        //cout<<endl<<"sgbm_params.mode;  : "<<mp.stereoMatcher.sgbm_params.mode;
         if(_sgbm.empty())
         {
             _sgbm = cv::StereoSGBM::create(
@@ -321,7 +324,7 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
 #if WITH_XIMGPROC
 //#if 0
     
-    cout << "Using WITH_XIMPROG" << endl;
+    //cout << "Using WITH_XIMPROG" << endl;
     bool reset_filter = false;
     bool reset_matcher = false;
     if(matching_parameters_.stereoMatcher.algorithm != _algorithm)
@@ -656,7 +659,7 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
 
     // Save pcd
     bool pcd_binary_mode = true;
-    cout << pcd_path.string() << endl;
+    //cout << pcd_path.string() << endl;
     pcl::io::savePCDFile( pcd_path.string(), *pcl_cloud_ptr, pcd_binary_mode );
    
     // Handle PNG extraction
@@ -686,7 +689,13 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
         // (makes camera less shaky). Note that since the velodyne is mounted
         // facing backwards, we preform a positive translation on sensor's X axis
         //Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(45,0,20);
-        Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(5,10,5);
+        static int count = 0;
+        //Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(5,10,5);
+        Eigen::Affine3f T_fixed_camera =
+            T_fixed_sensoryaw * Eigen::Translation<float,3>(15*cos(2.0*M_PI*count / 10.0),
+                                                            15*sin(2.0*M_PI*count / 10.0),
+                                                            5);
+        count++;
 
         // Add a new at current sensor pose. This creates a trail of frames
         //pcl_viewer_->addCoordinateSystem (1.0, T_fixed_sensor, "sensor_frame");
@@ -766,9 +775,11 @@ ImagePairMatcher::PointCloud::Ptr ImagePairMatcher::disparityToPointCloud(
             }
             else
             {
-                (*pcl_cloud_ptr)(w,h).x = image3d.at<cv::Vec3f>(h,w)[0];
-                (*pcl_cloud_ptr)(w,h).y = image3d.at<cv::Vec3f>(h,w)[1];
-                (*pcl_cloud_ptr)(w,h).z = image3d.at<cv::Vec3f>(h,w)[2];
+                // CAUTION !!!!! disparity was computed with fixed point values.
+                // True disparity values are multiplied by 16 (4 bit decimal part)
+                (*pcl_cloud_ptr)(w,h).x = 16.0*image3d.at<cv::Vec3f>(h,w)[0];
+                (*pcl_cloud_ptr)(w,h).y = 16.0*image3d.at<cv::Vec3f>(h,w)[1];
+                (*pcl_cloud_ptr)(w,h).z = 16.0*image3d.at<cv::Vec3f>(h,w)[2];
                 // /!\ Check the conversion values /!\ //
                 switch(asn1_frame_pair_ptr_->left.data.depth)
                 {
