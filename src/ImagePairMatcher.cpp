@@ -29,8 +29,25 @@ ImagePairMatcher::ImagePairMatcher(const std::string &output_dir, const std::vec
     out_color_disparity_ptr_{std::make_unique<asn1SccFrame>()},
     length_img_filename_{5},
     image_count_{0},
-    image_max_{std::stoul(std::string("1") + std::string(length_img_filename_, '0')) - 1}
+    image_max_{std::stoul(std::string("1") + std::string(length_img_filename_, '0')) - 1},
+    length_pcd_filename_{5},
+    pcd_count_{0},
+    pcd_max_{std::stoul(std::string("1") + std::string(length_pcd_filename_, '0')) - 1},
+    //extract_pcl_pngs_{false},
+    extract_pcl_pngs_{true},
+    pcl_viewer_{nullptr},
+    point_size_{1},
+    compute_min_max_z_{true},
+    min_z_{0},
+    max_z_{0},
+    color_mode_{ColorMode::kRainbow}
 {
+    if (extract_pcl_pngs_)
+    {
+        pcl_viewer_.reset(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+        pcl_viewer_->setBackgroundColor (255, 255, 255);
+        pcl_viewer_->initCameraParameters ();
+    }
 }
 
 
@@ -85,6 +102,8 @@ void ImagePairMatcher::Match()
   rect_left_data_dir_         = lambda_create_subdir(output_dir_,   "rect_left");
   rect_right_data_dir_        = lambda_create_subdir(output_dir_,   "rect_right");
   disparity_metadata_dir_     = lambda_create_subdir(output_dir_,   "metadata");
+  pcd_dir_                    = lambda_create_subdir(output_dir_,   "point_cloud_data");
+  pcd_img_dir_                = lambda_create_subdir(output_dir_,   "point_cloud_pngs");
 
   // Fill metadata names vector
   std::vector<std::string> metadata_names;
@@ -228,6 +247,7 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
     // Using Algorithm StereoBM
     if(matching_parameters_.stereoMatcher.algorithm == 0)
     {
+        cout << "Using StereoBM" << endl;
         if(_bm.empty())
         {
             _bm = cv::StereoBM::create(matching_parameters_.stereoMatcher.num_disparities, matching_parameters_.stereoMatcher.block_size);
@@ -253,9 +273,33 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
     // Using Algorithm StereoSGBM
     else if(matching_parameters_.stereoMatcher.algorithm == 1)
     {
+        auto& mp = matching_parameters_;
+        cout << "Using StereoSGBM" << endl;
+        cout<<endl<<"min_disparity;     : "<<mp.stereoMatcher.min_disparity;
+        cout<<endl<<"num_disparities;   : "<<mp.stereoMatcher.num_disparities; 
+        cout<<endl<<"block_size;        : "<<mp.stereoMatcher.block_size;
+        cout<<endl<<"sgbm_params.P1;    : "<<mp.stereoMatcher.sgbm_params.P1; 
+        cout<<endl<<"sgbm_params.P2;    : "<<mp.stereoMatcher.sgbm_params.P2; 
+        cout<<endl<<"disp12_max_diff;   : "<<mp.stereoMatcher.disp12_max_diff; 
+        cout<<endl<<"pre_filter_cap;    : "<<mp.stereoMatcher.pre_filter_cap;
+        cout<<endl<<"uniqueness_ratio;  : "<<mp.stereoMatcher.uniqueness_ratio; 
+        cout<<endl<<"speckle_window_siz : "<<mp.stereoMatcher.speckle_window_size; 
+        cout<<endl<<"speckle_range;     : "<<mp.stereoMatcher.speckle_range;
+        cout<<endl<<"sgbm_params.mode;  : "<<mp.stereoMatcher.sgbm_params.mode;
         if(_sgbm.empty())
         {
-            _sgbm = cv::StereoSGBM::create(matching_parameters_.stereoMatcher.min_disparity, matching_parameters_.stereoMatcher.num_disparities, matching_parameters_.stereoMatcher.block_size, matching_parameters_.stereoMatcher.sgbm_params.P1, matching_parameters_.stereoMatcher.sgbm_params.P2, matching_parameters_.stereoMatcher.disp12_max_diff, matching_parameters_.stereoMatcher.pre_filter_cap, matching_parameters_.stereoMatcher.uniqueness_ratio, matching_parameters_.stereoMatcher.speckle_window_size, matching_parameters_.stereoMatcher.speckle_range, matching_parameters_.stereoMatcher.sgbm_params.mode);
+            _sgbm = cv::StereoSGBM::create(
+            matching_parameters_.stereoMatcher.min_disparity, 
+            matching_parameters_.stereoMatcher.num_disparities, 
+            matching_parameters_.stereoMatcher.block_size, 
+            matching_parameters_.stereoMatcher.sgbm_params.P1, 
+            matching_parameters_.stereoMatcher.sgbm_params.P2, 
+            matching_parameters_.stereoMatcher.disp12_max_diff, 
+            matching_parameters_.stereoMatcher.pre_filter_cap, 
+            matching_parameters_.stereoMatcher.uniqueness_ratio, 
+            matching_parameters_.stereoMatcher.speckle_window_size, 
+            matching_parameters_.stereoMatcher.speckle_range, 
+            matching_parameters_.stereoMatcher.sgbm_params.mode);
         }
 
         _sgbm->setBlockSize(matching_parameters_.stereoMatcher.block_size);
@@ -275,6 +319,9 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
     }
 
 #if WITH_XIMGPROC
+//#if 0
+    
+    cout << "Using WITH_XIMPROG" << endl;
     bool reset_filter = false;
     bool reset_matcher = false;
     if(matching_parameters_.stereoMatcher.algorithm != _algorithm)
@@ -348,6 +395,10 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
         disparity = disparity_filtered;
     }
 #endif
+
+    // at this point disparity image is in cv::Mat disparity variable
+    // cv::Mat rect_left, rect_right
+    this->savePointCloud(disparity, rect_left, Q_);
 
     // Convert Mat to ASN.1
     out_raw_disparity.metadata.msgVersion = frame_Version;
@@ -492,18 +543,18 @@ void ImagePairMatcher::ProcessStereoRectification(asn1SccFramePair& in_original_
 
             cv::Mat1d RLeft;
             cv::Mat1d RRight;
-            cv::Mat1d Q;
+            //cv::Mat1d Q;
 
-            cv::stereoRectify(camera_matrix_L, dist_coeffs_L, camera_matrix_R, dist_coeffs_R, image_size, R, T, RLeft, RRight, _PLeft, _PRight, Q, CV_CALIB_ZERO_DISPARITY, _scaling, newSize);
+            cv::stereoRectify(camera_matrix_L, dist_coeffs_L, camera_matrix_R, dist_coeffs_R, image_size, R, T, RLeft, RRight, _PLeft, _PRight, Q_, CV_CALIB_ZERO_DISPARITY, _scaling, newSize);
 
             std::cout << "Pleft :\n" << _PLeft << std::endl;
             std::cout << "Pright :\n" << _PRight << std::endl;
-            std::cout << "Q :\n" << Q << std::endl << std::endl;
+            std::cout << "Q :\n" << Q_ << std::endl << std::endl;
 
             cv::initUndistortRectifyMap(camera_matrix_L, dist_coeffs_L, RLeft, _PLeft, newSize, CV_32F, _lmapx, _lmapy);
             cv::initUndistortRectifyMap(camera_matrix_R, dist_coeffs_R, RRight, _PRight, newSize, CV_32F, _rmapx, _rmapy);
 
-            _baseline = 1.0 / Q.at<double>(3,2);
+            _baseline = 1.0 / Q_.at<double>(3,2);
 
             _initialized = true;
         }
@@ -587,6 +638,336 @@ void ImagePairMatcher::ProcessStereoRectification(asn1SccFramePair& in_original_
             }
         }
     }
+}
+
+void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
+                                      const cv::Mat& lum,
+                                      const cv::Mat1d& Q)
+{
+    PointCloud::Ptr pcl_cloud_ptr = this->disparityToPointCloud(disparity,
+                                                                lum, Q);
+    Eigen::Affine3f T_fixed_sensor = this->ComputeSensorPoseInFixedFrame(*asn1_frame_pair_ptr_);
+    this->SetCloudSensorPose(T_fixed_sensor, *pcl_cloud_ptr); // Associate global pose to data
+
+    std::string pcd_filename = std::to_string(pcd_count_);
+    pcd_filename = std::string(length_pcd_filename_ - pcd_filename.length(), '0') 
+                 + pcd_filename + ".pcd";
+    bfs::path pcd_path = pcd_dir_ / pcd_filename;
+
+    // Save pcd
+    bool pcd_binary_mode = true;
+    cout << pcd_path.string() << endl;
+    pcl::io::savePCDFile( pcd_path.string(), *pcl_cloud_ptr, pcd_binary_mode );
+   
+    // Handle PNG extraction
+    if (extract_pcl_pngs_)
+    {
+        // Transform the points in the global frame for display (and set point_cloud pose to I)
+        pcl::transformPointCloud(*pcl_cloud_ptr, *pcl_cloud_ptr, T_fixed_sensor);
+        SetCloudSensorPose(Eigen::Affine3f::Identity(), *pcl_cloud_ptr);
+
+        // Get a version of the point cloud that can be colored
+        ColoredPointCloud::Ptr pcl_colored_cloud_ptr(new ColoredPointCloud());
+        pcl::copyPointCloud(*pcl_cloud_ptr, *pcl_colored_cloud_ptr);
+
+        // Compute useful transformations
+        // Sensor frame that considers only yaw
+        Eigen::Affine3f T_fixed_robot = ConvertAsn1PoseToEigen(
+            asn1_frame_pair_ptr_->left.extrinsic.pose_fixedFrame_robotFrame).cast<float>();
+
+        Eigen::Affine3f T_fixed_sensoryaw;
+        //T_fixed_sensoryaw = Eigen::AngleAxis<float>(ASN1BitstreamLogger::Yaw(
+        //    Eigen::Quaternionf(T_fixed_sensor.rotation())), Eigen::Vector3f::UnitZ());
+        //T_fixed_sensoryaw.translation() = T_fixed_sensor.translation();
+        T_fixed_sensoryaw = Eigen::AngleAxis<float>(ASN1BitstreamLogger::Yaw(
+            Eigen::Quaternionf(T_fixed_robot.rotation())), Eigen::Vector3f::UnitZ());
+        T_fixed_sensoryaw.translation() = T_fixed_robot.translation();
+        // Camera pose, behind the robot and considering only sensor yaw
+        // (makes camera less shaky). Note that since the velodyne is mounted
+        // facing backwards, we preform a positive translation on sensor's X axis
+        //Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(45,0,20);
+        Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(5,10,5);
+
+        // Add a new at current sensor pose. This creates a trail of frames
+        //pcl_viewer_->addCoordinateSystem (1.0, T_fixed_sensor, "sensor_frame");
+        pcl_viewer_->addCoordinateSystem (1.0, T_fixed_robot, "robot_frame");
+        // Or alternativaly we can update the coordinate system, w/o leaving the trail
+        // pcl_viewer_->updateCoordinateSystemPose ("sensor_frame", T_fixed_sensor);
+
+        // Fill RGB values for each point
+        ColorPointCloud(*pcl_colored_cloud_ptr);
+
+        // Remove previous point cloud
+        if(pcd_count_ != 0) {
+          pcl_viewer_->removePointCloud("sample cloud");
+        }
+
+        // Add cloud
+        pcl_viewer_->addPointCloud (pcl_colored_cloud_ptr, "sample cloud");
+        pcl_viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, point_size_, "sample cloud");
+
+        // Put the camera behind the robot, looking at the sensor origin, and upwards
+        pcl_viewer_->setCameraPosition (T_fixed_camera.translation()[0], // pos_x
+                                        T_fixed_camera.translation()[1], // pos_y
+                                        T_fixed_camera.translation()[2], // pos_z
+                                        T_fixed_sensoryaw.translation()[0], // view_x
+                                        T_fixed_sensoryaw.translation()[1], // view_y
+                                        T_fixed_sensoryaw.translation()[2], // view_z
+                                        0,  // up_x
+                                        0,  // up_y
+                                        1); // up_z
+
+        // Render
+        bool force_redraw = true;
+        pcl_viewer_->spinOnce (1, force_redraw);
+
+        // Save png
+        bfs::path png_path =
+            pcd_img_dir_ / bfs::path(pcd_path).filename().replace_extension(".png");
+        pcl_viewer_->saveScreenshot(png_path.string());
+    }
+
+    pcd_count_++;
+}
+
+ImagePairMatcher::PointCloud::Ptr ImagePairMatcher::disparityToPointCloud(
+    const cv::Mat& disparity, const cv::Mat& lum, const cv::Mat1d& Q)
+{
+    cv::Mat image3d;
+    reprojectImageTo3D(disparity, image3d, Q, true);
+    PointCloud::Ptr pcl_cloud_ptr(new PointCloud());
+
+	fromASN1SCC(asn1_frame_pair_ptr_->left.metadata.timeStamp, pcl_cloud_ptr->header.stamp);
+    if(!asn1_frame_pair_ptr_->left.extrinsic.hasFixedTransform)
+        throw std::invalid_argument("A left image where not tagged with a transform !");
+	fromASN1SCC(
+        asn1_frame_pair_ptr_->left.extrinsic.pose_robotFrame_sensorFrame.metadata.childFrameId,
+        pcl_cloud_ptr->header.frame_id);
+
+	pcl_cloud_ptr->points.resize(image3d.rows * image3d.cols);
+    pcl_cloud_ptr->height = image3d.rows;
+    pcl_cloud_ptr->width  = image3d.cols;
+
+    for(int w = 0; w < pcl_cloud_ptr->width; w++)
+    {
+        for(int h = 0; h < pcl_cloud_ptr->height; h++)
+        {
+            if(image3d.at<cv::Vec3f>(h,w)[2] >= 9999.9
+               || std::isnan(image3d.at<cv::Vec3f>(h,w)[0])
+               || std::isnan(image3d.at<cv::Vec3f>(h,w)[1])
+               || std::isnan(image3d.at<cv::Vec3f>(h,w)[2])
+               || h >= pcl_cloud_ptr->height - 4 || h < 4
+               || w >= pcl_cloud_ptr->width  - 4 || w < 4)
+            {
+                (*pcl_cloud_ptr)(w,h).intensity = -1.0;
+                (*pcl_cloud_ptr)(w,h).x = 0.0;
+                (*pcl_cloud_ptr)(w,h).y = 0.0;
+                (*pcl_cloud_ptr)(w,h).z = 0.0;
+            }
+            else
+            {
+                (*pcl_cloud_ptr)(w,h).x = image3d.at<cv::Vec3f>(h,w)[0];
+                (*pcl_cloud_ptr)(w,h).y = image3d.at<cv::Vec3f>(h,w)[1];
+                (*pcl_cloud_ptr)(w,h).z = image3d.at<cv::Vec3f>(h,w)[2];
+                // /!\ Check the conversion values /!\ //
+                switch(asn1_frame_pair_ptr_->left.data.depth)
+                {
+                    default:
+                        (*pcl_cloud_ptr)(w,h).intensity = -1.0;
+                        break;
+                    case asn1Sccdepth_8U:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<uint8_t>(h,w) / 255.0;
+                        break;
+                    case asn1Sccdepth_8S:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<int8_t>(h,w) / 127.0;
+                        break;
+                    case asn1Sccdepth_16U:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<uint16_t>(h,w) / 65536.0;
+                        break;
+                    case asn1Sccdepth_16S:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<int16_t>(h,w) / 32767.0;
+                        break;
+                    case asn1Sccdepth_32S:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<int32_t>(h,w) / 2147483647.0;
+                        break;
+                    case asn1Sccdepth_32F:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<float>(h,w);
+                        break;
+                    case asn1Sccdepth_64F:
+                        (*pcl_cloud_ptr)(w,h).intensity = lum.at<double>(h,w);
+                        break;
+                }
+            }
+        }
+    }
+    
+    return pcl_cloud_ptr;
+}
+
+Eigen::Affine3f ImagePairMatcher::ComputeSensorPoseInFixedFrame(
+    const asn1SccFramePair& asn1_frame_pair)
+{
+    Eigen::Affine3d T_fixed_robot = ConvertAsn1PoseToEigen(
+        asn1_frame_pair.left.extrinsic.pose_fixedFrame_robotFrame);
+
+    Eigen::Affine3d T_robot_sensor = ConvertAsn1PoseToEigen(
+        asn1_frame_pair.left.extrinsic.pose_robotFrame_sensorFrame);
+
+    return (T_fixed_robot * T_robot_sensor).cast<float>();
+}
+
+// (nearly) RAW COPIED FROM PointCloudExtractor ////////////////////////////////
+Eigen::Affine3d ImagePairMatcher::ConvertAsn1PoseToEigen(const asn1SccTransformWithCovariance& asn1_pose)
+{
+    Eigen::Matrix3d m;
+    m = Eigen::Quaterniond(asn1_pose.data.orientation.arr[3],
+                           asn1_pose.data.orientation.arr[0],
+                           asn1_pose.data.orientation.arr[1],
+                           asn1_pose.data.orientation.arr[2]);
+
+    Eigen::Affine3d eigen_pose;
+    eigen_pose.linear() = m;
+    eigen_pose.translation() << asn1_pose.data.translation.arr[0],
+                                asn1_pose.data.translation.arr[1],
+                                asn1_pose.data.translation.arr[2];
+    return eigen_pose;
+}
+
+std::tuple<float,float,float,float,float,float> ImagePairMatcher::FindMinMax(
+    const PointCloud& cloud)
+{
+  float min_x = cloud.points.at(0).x,
+        max_x = cloud.points.at(0).x,
+        min_y = cloud.points.at(0).y,
+        max_y = cloud.points.at(0).y,
+        min_z = cloud.points.at(0).z,
+        max_z = cloud.points.at(0).z;
+
+  for (auto & point : cloud.points)
+  {
+    if (min_x > point.x)
+      min_x = point.x;
+
+    if (max_x < point.x)
+      max_x = point.x;
+
+    if (min_y > point.y)
+      min_y = point.y;
+
+    if (max_y < point.y)
+      max_y = point.y;
+
+    if (min_z > point.z)
+      min_z = point.z;
+
+    if (max_z < point.z)
+      max_z = point.z;
+  }
+
+  return std::make_tuple(min_x, max_x, min_y, max_y, min_z, max_z);
+}
+
+void ImagePairMatcher::ColorPointCloud(ColoredPointCloud & colored_cloud)
+{
+  double lut_scale = 255.0 / (max_z_ - min_z_);  // max is 255, min is 0
+
+  if (min_z_ == max_z_)  // In case the cloud is flat
+    lut_scale = 1.0;  // Avoid rounding error in boost
+
+  for (auto & point : colored_cloud.points)
+  {
+    int value = boost::math::iround ( (point.z - min_z_) * lut_scale); // Round the number to the closest integer
+
+    // Guard against outliers
+    if (value > 255)
+      value = 255;
+    if (value < 0)
+      value = 0;
+
+    // Color the point
+    switch (color_mode_)
+    {
+      case ColorMode::kBlueToRed:
+        // Blue (= min) -> Red (= max)
+        point.r = value;
+        point.g = 0;
+        point.b = 255 - value;
+        break;
+      case ColorMode::kGreenToMagenta:
+        // Green (= min) -> Magenta (= max)
+        point.r = value;
+        point.g = 255 - value;
+        point.b = value;
+        break;
+      case ColorMode::kWhiteToRed:
+        // White (= min) -> Red (= max)
+        point.r = 255;
+        point.g = 255 - value;
+        point.b = 255 - value;
+        break;
+      case ColorMode::kGrayOrRed:
+        // Grey (< 128) / Red (> 128)
+        if (value > 128)
+        {
+          point.r = 255;
+          point.g = 0;
+          point.b = 0;
+        }
+        else
+        {
+          point.r = 128;
+          point.g = 128;
+          point.b = 128;
+        }
+        break;
+      default:
+        // Blue -> Green -> Red (~ rainbow)
+        point.r = value > 128 ? (value - 128) * 2 : 0;  // r[128] = 0, r[255] = 255
+        point.g = value < 128 ? 2 * value : 255 - ( (value - 128) * 2);  // g[0] = 0, g[128] = 255, g[255] = 0
+        point.b = value < 128 ? 255 - (2 * value) : 0;  // b[0] = 255, b[128] = 0
+    } 
+  }
+}
+
+std::istream& operator>>(std::istream& in, ImagePairMatcher::ColorMode& color_mode)
+{
+  using ColorMode = ImagePairMatcher::ColorMode;
+
+  std::string token;
+  in >> token;
+  if (token == "blue2red")
+    color_mode = ColorMode::kBlueToRed;
+  else if (token == "green2magenta")
+    color_mode = ColorMode::kGreenToMagenta;
+  else if (token == "white2red")
+    color_mode = ColorMode::kWhiteToRed;
+  else if (token == "gray/red")
+    color_mode = ColorMode::kGrayOrRed;
+  else if (token == "rainbow")
+    color_mode = ColorMode::kRainbow;
+  else
+      in.setstate(std::ios_base::failbit);
+  return in;
+}
+
+std::ostream& operator<<(std::ostream& out, const ImagePairMatcher::ColorMode& color_mode)
+{
+  using ColorMode = ImagePairMatcher::ColorMode;
+
+  if (color_mode == ColorMode::kBlueToRed)
+    out << "blue2red";
+  else if (color_mode == ColorMode::kGreenToMagenta)
+    out << "green2magenta";
+  else if (color_mode == ColorMode::kWhiteToRed)
+    out << "white2red";
+  else if (color_mode == ColorMode::kGrayOrRed)
+    out << "gray/red";
+  else if (color_mode == ColorMode::kRainbow)
+    out << "rainbow";
+  else
+    out.setstate(std::ios_base::failbit);
+
+  return out;
 }
 
 } // infuse_debug_tools

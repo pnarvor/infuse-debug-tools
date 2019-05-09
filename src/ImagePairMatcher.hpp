@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <fstream>
+#include <cmath>
 
 #include <infuse_msgs/asn1_bitstream.h>
 #include <infuse_asn1_types/Frame.h>
@@ -12,15 +13,40 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <infuse_asn1_conversions/asn1_base_conversions.hpp>
+#include <infuse_asn1_conversions/asn1_pcl_conversions.hpp>
+
 #if WITH_XIMGPROC
 #include <opencv2/ximgproc.hpp>
 #endif
 
 #include <boost/filesystem.hpp>
 
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/common/transforms.h>
+
 namespace infuse_debug_tools {
 
 class ImagePairMatcher {
+
+public:
+  typedef pcl::PointXYZI Point;
+  typedef pcl::PointCloud<Point> PointCloud;
+  typedef pcl::PointXYZRGB ColoredPoint;
+  typedef pcl::PointCloud<ColoredPoint> ColoredPointCloud;
+  typedef pcl::visualization::PointCloudColorHandler<Point> ColorHandler;
+  typedef ColorHandler::Ptr ColorHandlerPtr;
+  typedef ColorHandler::ConstPtr ColorHandlerConstPtr;
+
+  enum class ColorMode {
+    kBlueToRed,
+    kGreenToMagenta,
+    kWhiteToRed,
+    kGrayOrRed,
+    kRainbow
+  };
+
 public:
 
   struct stereoBMParams
@@ -218,6 +244,8 @@ public:
   StereoMatchingParams matching_parameters_;
   StereoRectificationParams rect_parameters_;
 
+#include <pcl/io/pcd_io.h>
+#include <pcl/common/transforms.h>
   ImagePairMatcher(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &image_topic, const std::string & img_extension, infuse_debug_tools::ImagePairMatcher::StereoMatchingParams & matching_parameters, infuse_debug_tools::ImagePairMatcher::StereoRectificationParams & rect_parameters);
   void Match();
 
@@ -301,7 +329,59 @@ private:
   cv::Mat1d _PRight;
   double _baseline;
 
+
+  // Starting from here, code for PointClpudExtraction /////////////////////////
+  cv::Mat1d Q_; // computed by cv::stereoRectify, saved for use in 
+                // reprojectImageTo3D for computing pointClouds
+  cv::Mat image3D_;       // StereoPoint cloud in cv::Mat format to be converted in PCD format
+  cv::Mat pointCloudLum_; // image used to fill the luminance part in the pcl type
+  void savePointCloud(const cv::Mat& disparity,
+                      const cv::Mat& lum,
+                      const cv::Mat1d& Q);
+  PointCloud::Ptr disparityToPointCloud(const cv::Mat& disparity,
+                                        const cv::Mat& lum,
+                                        const cv::Mat1d& Q);
+  Eigen::Affine3d ConvertAsn1PoseToEigen(const asn1SccTransformWithCovariance& asn1_pose);
+  std::tuple<float,float,float,float,float,float> FindMinMax(const PointCloud& cloud);
+  void ColorPointCloud(ColoredPointCloud & colored_cloud);
+  Eigen::Affine3f ComputeSensorPoseInFixedFrame(const asn1SccFramePair& asn1_frame_pair);
+
+  template<typename PointT>
+  void SetCloudSensorPose(const Eigen::Affine3f & pose, pcl::PointCloud<PointT> &pcl_cloud)
+  {
+    pcl_cloud.sensor_origin_ << pose.translation(), 0.0;
+    pcl_cloud.sensor_orientation_ = Eigen::Quaternionf(pose.rotation());
+  }
+
+  boost::filesystem::path pcd_dir_;
+  boost::filesystem::path pcd_img_dir_;
+
+  unsigned int length_pcd_filename_;
+  //! Counter for the number of pcd files written. Used to create the pcd filename
+  size_t pcd_count_;
+  //! Max value for pcd_count_, computed from length_pcd_filename_ in the constructor
+  size_t pcd_max_;
+  //! Stream used to write the metadata file
+  std::ofstream metadata_ofs_;
+  //! Store if we want to extract pngs using PCLVisualizer
+  bool extract_pcl_pngs_;
+  //! Viewer used to render pngs to be dumped
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> pcl_viewer_;
+  //! Point size for PNG extraction
+  double point_size_;
+  //! Directory where to put the png files (set on Extract())
+  boost::filesystem::path png_dir_;
+  //! Store if we want to compute min max z
+  bool compute_min_max_z_;
+  //! Store min and max z used to create color lookup table
+  double min_z_, max_z_;
+  //! Color mode used when dumping png views
+  ColorMode color_mode_;
 };
+
+// Functions used to convert color modes from/to streams
+std::istream& operator>>(std::istream& in, ImagePairMatcher::ColorMode& color_mode);
+std::ostream& operator<<(std::ostream& out, const ImagePairMatcher::ColorMode& color_mode);
 
 } // infuse_debug_tools
 
