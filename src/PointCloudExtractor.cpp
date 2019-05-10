@@ -17,8 +17,12 @@ namespace bfs = boost::filesystem;
 
 namespace infuse_debug_tools {
 
-PointCloudExtractor::PointCloudExtractor(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &point_cloud_topic, bool extract_pngs, ColorMode color_mode)
-  : output_dir_{output_dir},
+PointCloudExtractor::PointCloudExtractor(const std::string &output_dir,
+                                         const std::vector<std::string> &bag_paths,
+                                         const std::string &point_cloud_topic,
+                                         bool extract_pngs,
+                                         ColorMode color_mode) :
+    output_dir_{output_dir},
     bag_paths_{bag_paths},
     point_cloud_topic_{point_cloud_topic},
     asn1_pointcloud_ptr_{std::make_unique<asn1SccPointcloud>()},
@@ -34,8 +38,13 @@ PointCloudExtractor::PointCloudExtractor(const std::string &output_dir, const st
     color_mode_{color_mode}
 {}
 
-PointCloudExtractor::PointCloudExtractor(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &point_cloud_topic, double min_z, double max_z, bool extract_pngs, ColorMode color_mode)
-  : output_dir_{output_dir},
+PointCloudExtractor::PointCloudExtractor(const std::string &output_dir,
+                                         const std::vector<std::string> &bag_paths,
+                                         const std::string &point_cloud_topic,
+                                         double min_z, double max_z,
+                                         bool extract_pngs,
+                                         ColorMode color_mode) :
+    output_dir_{output_dir},
     bag_paths_{bag_paths},
     point_cloud_topic_{point_cloud_topic},
     asn1_pointcloud_ptr_{std::make_unique<asn1SccPointcloud>()},

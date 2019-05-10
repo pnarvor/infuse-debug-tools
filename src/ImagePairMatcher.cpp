@@ -38,10 +38,11 @@ ImagePairMatcher::ImagePairMatcher(const std::string &output_dir, const std::vec
     pcl_viewer_{nullptr},
     point_size_{1},
     compute_min_max_z_{true},
-    min_z_{0},
-    max_z_{0},
+    min_z_{-8.0},
+    max_z_{10.0},
     color_mode_{ColorMode::kRainbow}
 {
+    cout << "ImagePairMatcher constructor" << endl;
     if (extract_pcl_pngs_)
     {
         pcl_viewer_.reset(new pcl::visualization::PCLVisualizer ("3D Viewer"));
@@ -55,25 +56,37 @@ void ImagePairMatcher::Match()
 {
   // Vector of topics used to create a view on the bag
   std::vector<std::string> topics = {image_topic_};
-
+  
+  cout << "Starting matching" << endl;
   if(bag_paths_.size() <= 0)
+  {
       cout << "Warning : no bags to extract." << endl;
+      return;
+  }
+  cout << bag_paths_.size() << " bags to extract" << endl;
 
   // Get the number of messages to process
-  size_t n_images = 0;
-  for (auto bag_path : bag_paths_) {
-    rosbag::Bag bag(bag_path); // bagmode::Read by default
-    rosbag::View view(bag, rosbag::TopicQuery(topics));
-    n_images += view.size();
-    bag.close();
-  }
+    size_t n_images = 0;
+    int count = 0;
+    for (auto bag_path : bag_paths_)
+    {
+        cout <<  count << " " << bag_path << endl;
+        rosbag::Bag bag(bag_path); // bagmode::Read by default
+        rosbag::View view(bag, rosbag::TopicQuery(topics));
+        n_images += view.size();
+        bag.close();
+        count++;
+    }
+    cout << n_images << " images to extract" << endl;
 
   // Stop here if there's nothing on the topic
-  if (n_images == 0) {
+  if (n_images == 0)
+  {
     std::cout << "Warning: Nothing to extract on topic " << image_topic_ << std::endl;
     return;
   }
 
+  cout << "Creating output directory" << endl;
   // Makes sure the output dir does not already exists
   if (bfs::exists(output_dir_)) {
     std::stringstream ss;
@@ -137,6 +150,7 @@ void ImagePairMatcher::Match()
   std::cout << "Extracting " << n_images << " image pairs to " << output_dir_.string() << "/...";
   boost::progress_display show_progress( n_images );
 
+  cout << "Starting loot" << endl;
   // Loop over bags
   for (auto bag_path : bag_paths_) {
     rosbag::Bag bag(bag_path); // bagmode::Read by default
@@ -399,6 +413,33 @@ void ImagePairMatcher::ProcessStereoMatching(asn1SccFramePair& in_frame_pair, as
     }
 #endif
 
+    // Remove border of disparity (Artifact of StereoSGBM ?)
+    // invalid disparity value is -16 (don't ask)
+    int16_t disparityInvalidFlag = -16;
+    for(int h = 0; h < disparity.rows; h++)
+    {
+        disparity.at<int16_t>(h, disparity.cols - 1) = disparityInvalidFlag;
+        disparity.at<int16_t>(h, disparity.cols - 2) = disparityInvalidFlag;
+        disparity.at<int16_t>(h, disparity.cols - 3) = disparityInvalidFlag;
+        disparity.at<int16_t>(h, disparity.cols - 4) = disparityInvalidFlag;
+    }
+
+    //// Test disparity blurring
+    //{
+    //    cv::Mat disparityBlurred;
+    //    disparity.convertTo(disparity, CV_32F);
+
+    //    cv::GaussianBlur(disparity, disparityBlurred, cv::Size(5,5), 0, 0);
+    //    cv::Mat stencil;
+    //    cv::dilate(disparity <= disparityInvalidFlag, stencil, cv::Mat(), cv::Point(-1,-1), 1);
+    //    disparityBlurred.setTo(disparityInvalidFlag, stencil >= 1);
+    //    disparity = disparityBlurred;
+
+    //    //cv::medianBlur(disparity, disparityBlurred, 7);
+    //    //disparityBlurred.setTo(disparityInvalidFlag, disparity == disparityInvalidFlag);
+    //    //disparity = disparityBlurred;
+    //}
+
     // at this point disparity image is in cv::Mat disparity variable
     // cv::Mat rect_left, rect_right
     this->savePointCloud(disparity, rect_left, Q_);
@@ -650,7 +691,12 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
     PointCloud::Ptr pcl_cloud_ptr = this->disparityToPointCloud(disparity,
                                                                 lum, Q);
     Eigen::Affine3f T_fixed_sensor = this->ComputeSensorPoseInFixedFrame(*asn1_frame_pair_ptr_);
-    this->SetCloudSensorPose(T_fixed_sensor, *pcl_cloud_ptr); // Associate global pose to data
+    Eigen::Affine3f T_robot_sensor = ConvertAsn1PoseToEigen(
+        asn1_frame_pair_ptr_->left.extrinsic.pose_robotFrame_sensorFrame).cast<float>();
+    //this->SetCloudSensorPose(T_fixed_sensor, *pcl_cloud_ptr); // Associate global pose to data
+    this->SetCloudSensorPose(T_robot_sensor, *pcl_cloud_ptr); // Associate global pose to data
+    //pcl_cloud_ptr->sensor_origin_ = Eigen::Vector4f(0.0,0.0,0.0,0.0);
+    //pcl_cloud_ptr->sensor_orientation_ = Eigen::Quaternionf(T_fixed_sensor.rotation());
 
     std::string pcd_filename = std::to_string(pcd_count_);
     pcd_filename = std::string(length_pcd_filename_ - pcd_filename.length(), '0') 
@@ -685,6 +731,17 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
         T_fixed_sensoryaw = Eigen::AngleAxis<float>(ASN1BitstreamLogger::Yaw(
             Eigen::Quaternionf(T_fixed_robot.rotation())), Eigen::Vector3f::UnitZ());
         T_fixed_sensoryaw.translation() = T_fixed_robot.translation();
+
+        // Setting camera target (this point will be projected at image center)
+        // a bit in front of the robot
+        Eigen::Affine3f T_camera_target =
+            T_fixed_sensoryaw * Eigen::Translation<float,3>(15.0, 1.5, 0.0);
+
+        cout << "T_fixed_sensor :\t"
+             << T_fixed_sensor.translation()[0] << "\t"
+             << T_fixed_sensor.translation()[1] << "\t"
+             << T_fixed_sensor.translation()[2] << endl;
+
         // Camera pose, behind the robot and considering only sensor yaw
         // (makes camera less shaky). Note that since the velodyne is mounted
         // facing backwards, we preform a positive translation on sensor's X axis
@@ -692,9 +749,12 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
         static int count = 0;
         //Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(5,10,5);
         Eigen::Affine3f T_fixed_camera =
-            T_fixed_sensoryaw * Eigen::Translation<float,3>(15*cos(2.0*M_PI*count / 10.0),
-                                                            15*sin(2.0*M_PI*count / 10.0),
-                                                            5);
+        //    T_fixed_sensoryaw * Eigen::Translation<float,3>(-5.0,
+        //                                                    2.0 + 0.5*sin(2.0*M_PI*count / 10),
+        //                                                    2.5);
+            T_fixed_sensoryaw * Eigen::Translation<float,3>(-5.0,
+                                                             8.0,
+                                                             5.0);
         count++;
 
         // Add a new at current sensor pose. This creates a trail of frames
@@ -707,21 +767,22 @@ void ImagePairMatcher::savePointCloud(const cv::Mat& disparity,
         ColorPointCloud(*pcl_colored_cloud_ptr);
 
         // Remove previous point cloud
-        if(pcd_count_ != 0) {
-          pcl_viewer_->removePointCloud("sample cloud");
-        }
+        if(pcd_count_ != 0)
+            pcl_viewer_->removePointCloud("sample cloud");
 
         // Add cloud
-        pcl_viewer_->addPointCloud (pcl_colored_cloud_ptr, "sample cloud");
-        pcl_viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, point_size_, "sample cloud");
+        pcl_viewer_->addPointCloud(pcl_colored_cloud_ptr, "sample cloud");
+        pcl_viewer_->
+            setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
+                                             point_size_, "sample cloud");
 
         // Put the camera behind the robot, looking at the sensor origin, and upwards
         pcl_viewer_->setCameraPosition (T_fixed_camera.translation()[0], // pos_x
                                         T_fixed_camera.translation()[1], // pos_y
                                         T_fixed_camera.translation()[2], // pos_z
-                                        T_fixed_sensoryaw.translation()[0], // view_x
-                                        T_fixed_sensoryaw.translation()[1], // view_y
-                                        T_fixed_sensoryaw.translation()[2], // view_z
+                                        T_camera_target.translation()[0], // view_x
+                                        T_camera_target.translation()[1], // view_y
+                                        T_camera_target.translation()[2], // view_z
                                         0,  // up_x
                                         0,  // up_y
                                         1); // up_z
@@ -764,9 +825,9 @@ ImagePairMatcher::PointCloud::Ptr ImagePairMatcher::disparityToPointCloud(
             if(image3d.at<cv::Vec3f>(h,w)[2] >= 9999.9
                || std::isnan(image3d.at<cv::Vec3f>(h,w)[0])
                || std::isnan(image3d.at<cv::Vec3f>(h,w)[1])
-               || std::isnan(image3d.at<cv::Vec3f>(h,w)[2])
-               || h >= pcl_cloud_ptr->height - 4 || h < 4
-               || w >= pcl_cloud_ptr->width  - 4 || w < 4)
+               || std::isnan(image3d.at<cv::Vec3f>(h,w)[2]))
+               //|| h >= pcl_cloud_ptr->height - 4 || h < 4
+               //|| w >= pcl_cloud_ptr->width  - 4 || w < 4)
             {
                 (*pcl_cloud_ptr)(w,h).intensity = -1.0;
                 (*pcl_cloud_ptr)(w,h).x = 0.0;

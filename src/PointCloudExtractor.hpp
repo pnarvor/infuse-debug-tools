@@ -37,16 +37,28 @@ public:
   };
 
 public:
-  PointCloudExtractor(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &point_cloud_topic, bool extract_pngs = false, ColorMode color_mode = ColorMode::kRainbow);
-  PointCloudExtractor(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &point_cloud_topic, double min_z, double max_z, bool extract_pngs = false, ColorMode color_mode = ColorMode::kRainbow);
+  PointCloudExtractor(const std::string &output_dir,
+                      const std::vector<std::string> &bag_paths,
+                      const std::string &point_cloud_topic,
+                      bool extract_pngs = false,
+                      ColorMode color_mode = ColorMode::kRainbow);
+  PointCloudExtractor(const std::string &output_dir,
+                      const std::vector<std::string> &bag_paths,
+                      const std::string &point_cloud_topic,
+                      double min_z, double max_z,
+                      bool extract_pngs = false,
+                      ColorMode color_mode = ColorMode::kRainbow);
   void Extract();
 
 private:
   void DecodeBitstream(const infuse_msgs::asn1_bitstream::Ptr& msg);
   void ProcessPointCloud(const infuse_msgs::asn1_bitstream::Ptr& msg);
   Eigen::Affine3d ConvertAsn1PoseToEigen(const asn1SccTransformWithCovariance& asn1_pose);
+
   std::tuple<float,float,float,float,float,float> FindMinMax(const PointCloud & cloud);
-  std::tuple<float,float,float,float,float,float> FindMinMax(const infuse_msgs::asn1_bitstream::Ptr& msg);
+  std::tuple<float,float,float,float,float,float> FindMinMax(
+    const infuse_msgs::asn1_bitstream::Ptr& msg);
+
   void ColorPointCloud(ColoredPointCloud & colored_cloud);
   Eigen::Affine3f ComputeSensorPoseInFixedFrame(const asn1SccPointcloud & asn1_cloud);
 
