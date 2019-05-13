@@ -6,6 +6,7 @@ from .ImageSynchronizer   import ImageSynchronizer
 from .DataCleaner         import DataCleaner
 from .DataCleaner         import spike_detector
 from .CameraData          import CameraData
+from .VelodyneData        import VelodyneData
 from .RobotPoseExtractor  import RobotPoseExtractor
 from .DataPoseTagger      import DataPoseTagger
 from .InfuseTransform     import InfuseTransform
