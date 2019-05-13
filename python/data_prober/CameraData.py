@@ -54,6 +54,7 @@ class CameraData:
         self.totalScore             = np.empty([0])
 
         # other data
+        self.imageNumber   = []
         self.leftToRobot   = []
         self.rightToLeft   = InfuseTransform()
         self.robotToWorld  = []
@@ -76,6 +77,31 @@ class CameraData:
         self.dataLeftIntegrity.parse_metadata(self.leftIntegrityDataFormatFilename, self.leftIntegrityDataFilename)
         self.dataRightIntegrity.parse_metadata(self.rightIntegrityDataFormatFilename, self.rightIntegrityDataFilename)
         self.parse_calibration_file()
+
+        self.check_file_consistency() # check if number of images is the same in each files
+
+    def check_file_consistency(self):
+
+        indexLeft               = np.array(self.dataLeft.index)
+        indexRight              = np.array(self.dataRight.index)
+        indexLeftIntegrity      = np.array(self.dataLeftIntegrity.index)
+        indexRightIntegrity     = np.array(self.dataRightIntegrity.index)
+        indexDisparity          = np.array(self.dataDisparity.index)
+
+        try:
+            if np.linalg.norm(indexLeft - indexRight) > 1e-6:
+                raise Exception("Indexes inconsistent indexLeft/indexRight.")
+            if np.linalg.norm(indexLeft - indexLeftIntegrity) > 1e-6:
+                raise Exception("Indexes inconsistent indexLeft/indexLeftIntegrity.")
+            if np.linalg.norm(indexLeft - indexRightIntegrity) > 1e-6:
+                raise Exception("Indexes inconsistent indexLeft/indexRightIntegrity.")
+            if np.linalg.norm(indexLeft - indexDisparity) > 1e-6:
+                raise Exception("Indexes inconsistent indexLeft/indexDisparity.")
+        except Exception as e:
+            print("Data files are inconsistent for " + self.cameraName + " cam !")
+            raise e
+
+        self.imageNumber = self.dataLeft.index
 
     def compute_stereo_desync(self):
 
