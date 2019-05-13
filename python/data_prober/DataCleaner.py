@@ -23,6 +23,9 @@ def get_pcd_header(filename):
             break
     
     return res
+ 
+def spike_detector(data):
+   return np.abs(data - medfilt(data, kernel_size=3)) 
 
 class DataCleaner:
     
