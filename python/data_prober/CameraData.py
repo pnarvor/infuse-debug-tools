@@ -4,8 +4,12 @@ import io
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 
+# copied from inscripts.core
+from ruamel.yaml import YAML
+
 from .Metadata import Metadata
 from .InfuseTransform import InfuseTransform
+from .DataCleaner import spike_detector
 
 class CameraData:
 
@@ -29,7 +33,7 @@ class CameraData:
         self.rightIntegrityDataFilename       = os.path.join(self.dataRootDir, self.cameraName + "_cam/right/image_integrity.txt")
         self.disparityDataFormatFilename      = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_dataformat.txt")
         self.disparityDataFilename            = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_all_metadata.txt")
-        self.calibrationFilename              = os.path.join(self.dataRootDir, "../../", self.cameraName + "-calibration.yaml")
+        self.calibrationFilename              = os.path.join(self.dataRootDir, "../", self.cameraName + "cam-calibration.yaml")
 
         # raw data file parsing
         self.dataLeft           = Metadata()
@@ -37,16 +41,32 @@ class CameraData:
         self.dataLeftIntegrity  = Metadata()
         self.dataRightIntegrity = Metadata()
         self.dataDisparity      = Metadata()
+        self.dataCalibration    = None
 
         # Advanced data for display
-        self.stereoDesync       = np.empty([0])
-        self.stereoStamps       = np.empty([0])
-        self.minTime            = -1
-        self.disparityScore     = np.empty([0])
-        self.leftIntegrity      = np.empty([0])
-        self.rightIntegrity     = np.empty([0])
-        self.totalScore         = np.empty([0])
-        self.rightToLeft        = InfuseTransform()
+        self.stereoDesync           = np.empty([0])
+        self.stereoStamps           = np.empty([0])
+        self.minTime                = -1
+        self.disparityScore         = np.empty([0])
+        self.disparityScoreFiltered = np.empty([0])
+        self.leftIntegrity          = np.empty([0])
+        self.rightIntegrity         = np.empty([0])
+        self.totalScore             = np.empty([0])
+
+        # other data
+        self.leftToRobot   = []
+        self.rightToLeft   = InfuseTransform()
+        self.robotToWorld  = []
+
+    def load(self):
+
+        self.load_files()
+        self.load_left_pose()
+        self.load_robot_pose()
+        self.compute_stereo_desync()
+        self.compute_disparity_score()
+        self.compute_integrity()
+        self.compute_total_score()
 
     def load_files(self):
 
@@ -55,6 +75,7 @@ class CameraData:
         self.dataDisparity.parse_metadata(self.disparityDataFormatFilename, self.disparityDataFilename)
         self.dataLeftIntegrity.parse_metadata(self.leftIntegrityDataFormatFilename, self.leftIntegrityDataFilename)
         self.dataRightIntegrity.parse_metadata(self.rightIntegrityDataFormatFilename, self.rightIntegrityDataFilename)
+        self.parse_calibration_file()
 
     def compute_stereo_desync(self):
 
@@ -66,6 +87,7 @@ class CameraData:
 
         self.disparityScore = 100 - self.dataDisparity.get_nparray('percentage_of_paired_pixels')
         self.disparityScore = self.disparityScore - np.amin(self.disparityScore)
+        self.disparityScoreFiltered = spike_detector(self.disparityScore)
 
     def compute_integrity(self):
        
@@ -76,7 +98,7 @@ class CameraData:
 
     def compute_total_score(self):
 
-        dataArray = np.vstack((self.navStereoDesync, self.navDisparityScore, self.navLeftIntegrity, self.navRightIntegrity))
+        dataArray = np.vstack((self.stereoDesync, self.disparityScore, self.leftIntegrity, self.rightIntegrity))
 
         sig = np.zeros([4,4])
         sig[0,0] = 1.0 / np.dot(dataArray[0,:], dataArray[0,:])
@@ -84,4 +106,64 @@ class CameraData:
         sig[2,2] = 1.0 / np.dot(dataArray[2,:], dataArray[2,:])
         sig[3,3] = 1.0 / np.dot(dataArray[3,:], dataArray[3,:])
 
-        self.navTotalScore = 1 - np.exp(-np.sum(np.multiply(dataArray, sig @ dataArray), axis=0))
+        self.totalScore = 1 - np.exp(-np.sum(np.multiply(dataArray, sig @ dataArray), axis=0))
+
+    def parse_calibration_file(self):
+
+        # yaml = YAML(typ='safe')
+        # with open(self.calibrationFilename, 'r') as f:
+        #     self.dataCalibration = yaml.load(f)
+
+        # Had to parse by hand (issue with yaml version ?)
+        def parse_yaml_data_line(line):
+            items = line.split("data:")[1].split('[')[1].split(']')[0].split(',')
+            return [float(item) for item in items]
+
+        isInRotationBlock = False
+        isInTranslationBlock = False
+        for line in open(self.calibrationFilename, 'r'):
+
+            if "rotation_matrix" in line:
+                isInRotationBlock = True
+                continue
+            if isInRotationBlock and "data" in line:
+                rotationData = parse_yaml_data_line(line)
+                isInRotationBlock = False
+                continue
+
+            if "translation_coefficients" in line:
+                isInTranslationBlock = True
+                continue
+            if isInTranslationBlock and "data" in line:
+                translationData = parse_yaml_data_line(line)
+                continue 
+
+        translation    = np.array(translationData) 
+        rotationMatrix = np.array([rotationData[0:3], rotationData[3:6], rotationData[6:10]])
+        self.rightToLeft = InfuseTransform(translation, Quaternion(matrix=rotationMatrix))
+
+    def load_left_pose(self):
+
+        self.leftToRobot = []
+        for x,y,z,qw,qx,qy,qz in zip(self.dataLeft.pose_robot_sensor__x,
+                                     self.dataLeft.pose_robot_sensor__y,
+                                     self.dataLeft.pose_robot_sensor__z,
+                                     self.dataLeft.pose_robot_sensor__qw,
+                                     self.dataLeft.pose_robot_sensor__qx,
+                                     self.dataLeft.pose_robot_sensor__qy,
+                                     self.dataLeft.pose_robot_sensor__qz):
+            self.leftToRobot.append(InfuseTransform(np.array([x,y,z]),
+                                                    Quaternion([qw,qx,qy,qz])))
+    def load_robot_pose(self):
+
+        self.robotToWorld = []
+        for x,y,z,qw,qx,qy,qz in zip(self.dataLeft.pose_fixed_robot__x,
+                                     self.dataLeft.pose_fixed_robot__y,
+                                     self.dataLeft.pose_fixed_robot__z,
+                                     self.dataLeft.pose_fixed_robot__qw,
+                                     self.dataLeft.pose_fixed_robot__qx,
+                                     self.dataLeft.pose_fixed_robot__qy,
+                                     self.dataLeft.pose_fixed_robot__qz):
+            self.robotToWorld.append(InfuseTransform(np.array([x,y,z]),
+                                                     Quaternion([qw,qx,qy,qz])))
+
