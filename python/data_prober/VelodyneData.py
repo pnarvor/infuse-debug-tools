@@ -27,10 +27,11 @@ class VelodyneData:
         self.dataVelodyne = Metadata()
 
         # data for display
-        self.cloudTime = np.empty([0])
-        self.poseTime  = np.empty([0])
-        self.nbPoints  = np.empty([0])
-        self.minTime   = -1
+        self.cloudTime      = np.empty([0])
+        self.poseTime       = np.empty([0])
+        self.nbPoints       = np.empty([0])
+        self.minTime        = -1
+        self.robotToWorldTr = np.empty([0])
 
         # other data
         self.scanNumber    = []
@@ -72,6 +73,7 @@ class VelodyneData:
     def load_robot_pose(self):
 
         self.robotToWorld = []
+        robotToWorldTr = []
         for x,y,z,qw,qx,qy,qz in zip(self.dataVelodyne.pose_fixed_robot__x,
                                      self.dataVelodyne.pose_fixed_robot__y,
                                      self.dataVelodyne.pose_fixed_robot__z,
@@ -81,6 +83,8 @@ class VelodyneData:
                                      self.dataVelodyne.pose_fixed_robot__qz):
             self.robotToWorld.append(InfuseTransform(np.array([x,y,z]),
                                                      Quaternion([qw,qx,qy,qz])))
+            robotToWorldTr.append([x,y,z])
+        self.robotToWorldTr = np.array(robotToWorldTr)
 
     def display(self):
 
