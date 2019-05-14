@@ -4,6 +4,7 @@ from .BrokenImageDetector import BrokenImageDetector
 from .ImageSynchronizer   import StereoPairStamp
 from .ImageSynchronizer   import ImageSynchronizer
 from .DataCleaner         import DataCleaner
+from .DataCleaner2        import DataCleaner2
 from .DataCleaner         import spike_detector
 from .RobotPoseData       import RobotPoseData
 from .CameraData          import CameraData

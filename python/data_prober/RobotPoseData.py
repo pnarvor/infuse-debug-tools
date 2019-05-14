@@ -229,7 +229,6 @@ class RobotPoseData:
 
         self.robotLtfPoses = []
         robotLtfTr = []
-
         self.delayGpsOdo = []
         for gpsPose, odoIndex, gpsStamp in zip(self.gpsLtfPoses, synchedOdoIndexes, self.dataGps.child_time):
             odoPose = self.odometryLtfPoses[int(odoIndex)]
@@ -253,12 +252,12 @@ class RobotPoseData:
         stamps = np.array(self.dataGps.child_time)
         indexesToRemove = np.where(stamps[1:] == stamps[:-1])[0]
         gpsUniqueStampIndexes = [i for i in range(len(self.dataGps.child_time))]
-        gpsUniqueStamps = self.dataGps.child_time
+        gpsUniqueStamps = [t for t in self.dataGps.child_time]
         print("Removing duplicates : ", len(indexesToRemove), " poses to remove") 
         for index in reversed(indexesToRemove):
             gpsUniqueStampIndexes.pop(index)
             gpsUniqueStamps.pop(index)
-        print("Gps stamps span : ", gpsUniqueStamps[0], "-", gpsUniqueStamps[-1])
+
         self.poseInterpolator = interp1d(gpsUniqueStamps,
                                          gpsUniqueStampIndexes,
                                          kind='nearest',

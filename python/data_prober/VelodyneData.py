@@ -18,6 +18,7 @@ class VelodyneData:
 
         # Example of dataRootDir      : "/media/data/log_data_acquisition/raw_data"
         self.dataRootDir = dataRootDir
+        self.filesLoaded  = False
 
         # raw file path
         self.dataFormatFilename  = os.path.join(self.dataRootDir, "velodyne/dataformat.txt")
@@ -27,20 +28,27 @@ class VelodyneData:
         self.dataVelodyne = Metadata()
 
         # data for display
-        self.cloudTime      = np.empty([0])
-        self.poseTime       = np.empty([0])
-        self.nbPoints       = np.empty([0])
-        self.minTime        = -1
-        self.robotToWorldTr = np.empty([0])
+        self.cloudTime           = np.empty([0])
+        self.poseTime            = np.empty([0])
+        self.nbPoints            = np.empty([0])
+        self.minTime             = -1
+        self.robotToWorldTr      = np.empty([0])
+        self.robotPoseRetaggedTr = np.empty([0])
 
         # other data
-        self.scanNumber    = []
-        self.sensorToRobot = []
-        self.robotToWorld  = []
+        self.scanNumber        = []
+        self.sensorToRobot     = []
+        self.robotToWorld      = []
+        self.robotPoseRetagged = []
 
     def load(self):
 
-        self.load_files()
+        try:
+            self.load_files()
+        except:
+            print("No velodyne data")
+            return
+            
         self.load_cloud_data()
         self.load_sensor_pose()
         self.load_robot_pose()
@@ -48,6 +56,7 @@ class VelodyneData:
     def load_files(self):
 
         self.dataVelodyne.parse_metadata(self.dataFormatFilename,   self.dataFilename)
+        self.filesLoaded = True
 
     def load_cloud_data(self):
 
@@ -86,7 +95,20 @@ class VelodyneData:
             robotToWorldTr.append([x,y,z])
         self.robotToWorldTr = np.array(robotToWorldTr)
 
-    def display(self):
+    def compute_retagged_poses(self, robotPoseData):
+
+        if not self.filesLoaded:
+            return
+
+        self.robotPoseRetagged = robotPoseData.interpolate(self.dataVelodyne.cloud_time)
+        self.robotPoseRetaggedTr = np.array([[pose.tr.translation[0],
+                                              pose.tr.translation[1],
+                                              pose.tr.translation[2]] for pose in self.robotPoseRetagged])
+
+    def display(self, verbose=False):
+
+        if not self.filesLoaded:
+            return 
 
         fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
         axes[0].plot((self.cloudTime - self.poseTime) / 1000.0, label="Desync cloud / pose")

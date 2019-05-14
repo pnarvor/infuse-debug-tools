@@ -21,7 +21,8 @@ class CameraData:
         
         # Example of dataRootDir      : "/media/data/log_data_acquisition/raw_data"
         self.dataRootDir = dataRootDir
-        self.cameraName = camera
+        self.cameraName  = camera
+        self.filesLoaded = False
 
         # raw file path
         self.leftDataFormatFilename           = os.path.join(self.dataRootDir, self.cameraName + "_cam/left/left_dataformat.txt")
@@ -44,7 +45,7 @@ class CameraData:
         self.dataDisparity      = Metadata()
         self.dataCalibration    = None
 
-        # Advanced data for display
+        # Data for display
         self.stereoDesync           = np.empty([0])
         self.stereoStamps           = np.empty([0])
         self.minTime                = -1
@@ -53,16 +54,24 @@ class CameraData:
         self.leftIntegrity          = np.empty([0])
         self.rightIntegrity         = np.empty([0])
         self.totalScore             = np.empty([0])
+        self.robotToWordTr          = np.empty([0])
+        self.robotPoseRetaggedTr    = np.empty([0])
 
         # other data
-        self.imageNumber   = []
-        self.leftToRobot   = []
-        self.rightToLeft   = InfuseTransform()
-        self.robotToWorld  = []
+        self.imageNumber       = []
+        self.leftToRobot       = []
+        self.rightToLeft       = InfuseTransform()
+        self.robotToWorld      = []
+        self.robotPoseRetagged = []
 
     def load(self):
 
-        self.load_files()
+        try:
+            self.load_files()
+        except:
+            print("No", self.cameraName + "_cam data") 
+            return 
+
         self.load_left_pose()
         self.load_robot_pose()
         self.compute_stereo_desync()
@@ -80,6 +89,7 @@ class CameraData:
         self.parse_calibration_file()
 
         self.check_file_consistency() # check if number of images is the same in each files
+        self.filesLoaded = True
 
     def check_file_consistency(self):
 
@@ -184,6 +194,7 @@ class CameraData:
     def load_robot_pose(self):
 
         self.robotToWorld = []
+        tmp = []
         for x,y,z,qw,qx,qy,qz in zip(self.dataLeft.pose_fixed_robot__x,
                                      self.dataLeft.pose_fixed_robot__y,
                                      self.dataLeft.pose_fixed_robot__z,
@@ -193,9 +204,56 @@ class CameraData:
                                      self.dataLeft.pose_fixed_robot__qz):
             self.robotToWorld.append(InfuseTransform(np.array([x,y,z]),
                                                      Quaternion([qw,qx,qy,qz])))
+            tmp.append([x,y,z])
+        self.robotToWorldTr = np.array(tmp)
 
-    def display(self):
+    def compute_retagged_poses(self, robotPoseData):
 
+        if not self.filesLoaded:
+            return
+
+        self.robotPoseRetagged = robotPoseData.interpolate(self.dataLeft.timestamp)
+        self.robotPoseRetaggedTr = np.array([[pose.tr.translation[0],
+                                              pose.tr.translation[1],
+                                              pose.tr.translation[2]] for pose in self.robotPoseRetagged])
+
+    def display(self, verbose=False):
+
+        if not self.filesLoaded:
+            return
+ 
+        if verbose:
+            fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
+            axes[0].plot(self.robotToWorldTr[:,0] - self.robotPoseRetaggedTr[:,0], '--o', label="Pose diff East", markeredgewidth=0.0)
+            axes[0].legend(loc="upper right")
+            axes[0].set_xlabel("Image number")
+            axes[0].set_ylabel("Diff (m)")
+            axes[0].grid()
+            axes[1].plot(self.robotToWorldTr[:,1] - self.robotPoseRetaggedTr[:,1], '--o', label="Pose diff North", markeredgewidth=0.0)
+            axes[1].legend(loc="upper right")
+            axes[1].set_xlabel("Image number")
+            axes[1].set_ylabel("Diff (m)")
+            axes[1].grid()
+            axes[2].plot(self.robotToWorldTr[:,2] - self.robotPoseRetaggedTr[:,2], '--o', label="Pose diff Elevation", markeredgewidth=0.0)
+            axes[2].legend(loc="upper right")
+            axes[2].set_xlabel("Image number")
+            axes[2].set_ylabel("Diff (m)")
+            axes[2].grid()
+            axes[3].plot(np.linalg.norm(self.robotToWorldTr - self.robotPoseRetaggedTr, axis=1), '--o', label="Pose diff Norm", markeredgewidth=0.0)
+            axes[3].legend(loc="upper right")
+            axes[3].set_xlabel("Image number")
+            axes[3].set_ylabel("Diff (m)")
+            axes[3].grid()
+
+       
+        fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+        axes.plot(self.robotToWorldTr[:,0], self.robotToWorldTr[:,1], '--o', label="Pose tagged in Morocco", markeredgewidth=0.0)
+        axes.plot(self.robotPoseRetaggedTr[:,0], self.robotPoseRetaggedTr[:,1], '--o', label="Pose retagged", markeredgewidth=0.0)
+        axes.legend(loc="upper right")
+        axes.set_xlabel("East (m)")
+        axes.set_ylabel("North (m)")
+        axes.set_aspect('equal')
+        axes.grid()
         fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
         axes[0].plot(self.stereoDesync / 1000.0, label=self.cameraName+" Stereo desync")
         axes[0].legend(loc="upper right")

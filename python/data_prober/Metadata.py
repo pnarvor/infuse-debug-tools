@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from .MetadataFormat import MetadataFormat
 
 class Metadata:
@@ -15,6 +16,11 @@ class Metadata:
         return self.metadataFormat.__str__()
 
     def parse_metadata(self, metadataFormatFilename, metadataFilename):
+
+        if not os.path.isfile(metadataFormatFilename):
+            raise Exception("Metadata could not find file : ", metadataFormatFilename)
+        if  not os.path.isfile(metadataFilename):
+            raise Exception("Metadata could not find file : ", metadataFilename)
 
         self.metadataFormat.parse_metadata_format_file(metadataFormatFilename)
 
