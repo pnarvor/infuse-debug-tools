@@ -17,4 +17,4 @@ dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie/log_data_acquisition_
 
 dataCleaner = DataCleaner2(dataRootDir)
 dataCleaner.load()
-dataCleaner.display(verbose=False)
+dataCleaner.display(verbose=True)

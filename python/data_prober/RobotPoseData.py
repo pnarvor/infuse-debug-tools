@@ -32,12 +32,22 @@ def parse_urdf_joint(jointNode):
 
     return InfuseTransform(np.array([float(t[0]), float(t[1]), float(t[2])]))
 
+def compute_curvilinear_abscisse(poseList):
+    abscisse = [0.0]
+    lastPose = poseList[0]
+    lastAbs = 0.0
+    for pose in poseList[1:]:
+        lastAbs = lastAbs + np.linalg.norm(pose.translation - lastPose.translation)
+        abscisse.append(lastAbs)
+        lastPose = pose
+    return abscisse
+
 class FullRobotPose:
-    def __init__(self, stamp, tr, gpsStddev):
+    def __init__(self, stamp, tr, gpsStddev, curveAbs):
         self.stamp = stamp
         self.tr = tr
         self.gpsStddev = gpsStddev
-
+        self.curveAbs = curveAbs
 
 class RobotPoseData:
 
@@ -49,6 +59,7 @@ class RobotPoseData:
         # raw file path
         self.gpsDataFormatFilename      = os.path.join(self.dataRootDir, "gps/gps_pose_info_dataformat.txt")
         self.gpsDataFilename            = os.path.join(self.dataRootDir, "gps/gps_pose_info.txt")
+        self.robotLtfPoses = []
         self.odometryDataFormatFilename = os.path.join(self.dataRootDir, "odometry/dataformat.txt")
         self.odometryDataFilename       = os.path.join(self.dataRootDir, "odometry/odometry.txt")
         self.tokamakDataFormatFilename  = os.path.join(self.dataRootDir, "tokamak/dataformat.txt")
@@ -71,9 +82,13 @@ class RobotPoseData:
         self.odometryPoses        = []
         self.odometryLtfPoses     = []
         self.tokamakPoses         = []
+        self.robotLtfPoses        = []
         self.minTime              = -1
         self.poseInterpolator     = None 
-        self.odometryInterpolator = None 
+        self.robotLtfPoses = []
+        self.odometryInterpolator = None
+        self.robotPoseCurveAbs    = []
+        self.odometryCurveAbs     = []
 
         # data for display
         self.gpsTr         = np.empty([0])
@@ -95,6 +110,8 @@ class RobotPoseData:
         self.compute_gps_ltf()
         self.compute_odometry_ltf()
         self.compute_robot_pose_ltf()
+        self.robotPoseCurveAbs = compute_curvilinear_abscisse(self.robotLtfPoses)
+        self.odometryCurveAbs  = compute_curvilinear_abscisse(self.odometryPoses)
         print("Done !")
 
     def load_files(self):
@@ -276,7 +293,8 @@ class RobotPoseData:
                               self.robotLtfPoses[int(i)],
                               np.array([self.dataGps.easting_sigma[int(i)],
                                         self.dataGps.northing_sigma[int(i)],
-                                        self.dataGps.height_sigma[int(i)]])) for i in poseIndexes]
+                                        self.dataGps.height_sigma[int(i)]]),
+                                        self.robotPoseCurveAbs[int(i)]) for i in poseIndexes]
 
     def build_odometry_interpolator(self):
 
@@ -295,7 +313,8 @@ class RobotPoseData:
         poseIndexes = self.odometryInterpolator(stamps)
         return [FullRobotPose(self.dataOdometry.child_time[int(i)],
                               self.odometryPoses[int(i)],
-                              np.array([0.0, 0.0, 0.0])) for i in poseIndexes]
+                              np.array([0.0, 0.0, 0.0]),
+                              self.odometryCurveAbs[int(i)]) for i in poseIndexes]
 
     def display(self, verbose=False, blocking=False):
 
@@ -323,6 +342,15 @@ class RobotPoseData:
             axes.legend(loc="upper right")
             axes.set_xlabel("Gps pose index")
             axes.set_ylabel("Delay (ms)")
+            axes.grid()
+
+            fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+            axes.set_title("RobotPoseData : Curvilinear abscisses")
+            axes.plot((np.array(self.dataOdometry.child_time) - self.minTime) / 1000000.0, self.odometryCurveAbs, '--o', label="Odometry curv abs", markeredgewidth=0.0)
+            axes.plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, self.robotPoseCurveAbs, '--o', label="GPS curv abs", markeredgewidth=0.0)
+            axes.legend(loc="upper right")
+            axes.set_xlabel("Mission time (s)")
+            axes.set_ylabel("Curv abscisse (m)")
             axes.grid()
 
             fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
