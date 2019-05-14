@@ -8,7 +8,6 @@ from scipy.signal import medfilt
 # from scipy.interpolate import NearestNDInterpolator
 from scipy.interpolate import interp1d
 
-
 from .Metadata import Metadata
 from .InfuseTransform import InfuseTransform
 from .DataCleaner import spike_detector
@@ -32,6 +31,13 @@ def parse_urdf_joint(jointNode):
     t = transformNode.attrib['xyz'].split()
 
     return InfuseTransform(np.array([float(t[0]), float(t[1]), float(t[2])]))
+
+class FullRobotPose:
+    def __init__(self, stamp, tr, gpsStddev):
+        self.stamp = stamp
+        self.tr = tr
+        self.gpsStddev = gpsStddev
+
 
 class RobotPoseData:
 
@@ -65,6 +71,8 @@ class RobotPoseData:
         self.odometryPoses    = []
         self.odometryLtfPoses = []
         self.tokamakPoses     = []
+        self.minTime          = -1
+        self.poseInterpolator = None 
 
         # data for display
         self.gpsTr         = np.empty([0])
@@ -75,22 +83,28 @@ class RobotPoseData:
 
     def load(self):
 
+        print("Loading data files... ", end="", flush=True)
         self.load_files()
+        print("Done !")
+
+        print("Computing display variables... ", end="", flush=True)
         self.load_gps_poses()
         self.load_odometry_poses()
         self.load_tokamak_poses()
         self.compute_gps_ltf()
         self.compute_odometry_ltf()
         self.compute_robot_pose_ltf()
+        print("Done !")
 
     def load_files(self):
-
+        
         self.parse_internal_urdf()
         self.parse_external_urdf()
         self.parse_heading_file()
         self.dataGps.parse_metadata(self.gpsDataFormatFilename, self.gpsDataFilename)
         self.dataOdometry.parse_metadata(self.odometryDataFormatFilename, self.odometryDataFilename)
         self.dataTokamak.parse_metadata(self.tokamakDataFormatFilename, self.tokamakDataFilename)
+        self.minTime = self.dataTokamak.child_time[0]
 
     def parse_internal_urdf(self):
 
@@ -234,42 +248,94 @@ class RobotPoseData:
         #     robotLtfTr.append([pose.translation[0], pose.translation[1], pose.translation[2]])
         self.robotLtfTr = np.array(robotLtfTr)
 
-    def display(self):
+    def build_pose_interpolator(self):
 
-        # GPS and odometry in their respective frames (not interesting...)
-        fig, axes = plt.subplots(1,2, sharex=False, sharey=False)
-        axes[0].plot(self.gpsTr[:,0], self.gpsTr[:,1], label="GPS UTM")
-        axes[0].legend(loc="upper right")
-        axes[0].set_xlabel("East (m)")
-        axes[0].set_ylabel("North (m)")
-        axes[0].set_aspect('equal')
-        axes[0].grid()
-        axes[1].plot(self.odometryTr[:,0], self.odometryTr[:,1], label="Raw odometry \"odom frame\"")
-        axes[1].legend(loc="upper right")
-        axes[1].set_xlabel("x (m)")
-        axes[1].set_ylabel("y (m)")
-        axes[1].set_aspect('equal')
-        axes[1].grid()
+        stamps = np.array(self.dataGps.child_time)
+        indexesToRemove = np.where(stamps[1:] == stamps[:-1])[0]
+        gpsUniqueStampIndexes = [i for i in range(len(self.dataGps.child_time))]
+        gpsUniqueStamps = self.dataGps.child_time
+        print("Removing duplicates : ", len(indexesToRemove), " poses to remove") 
+        for index in reversed(indexesToRemove):
+            gpsUniqueStampIndexes.pop(index)
+            gpsUniqueStamps.pop(index)
+        print("Gps stamps span : ", gpsUniqueStamps[0], "-", gpsUniqueStamps[-1])
+        self.poseInterpolator = interp1d(gpsUniqueStamps,
+                                         gpsUniqueStampIndexes,
+                                         kind='nearest',
+                                         bounds_error=False,
+                                         fill_value=0,
+                                         assume_sorted=True)
+
+    def interpolate(self, stamps):
+
+        if self.poseInterpolator is None:
+            self.build_pose_interpolator()
+
+        poseIndexes = self.poseInterpolator(stamps)
+        return [FullRobotPose(self.dataGps.child_time[int(i)],
+                              self.robotLtfPoses[int(i)],
+                              np.array([self.dataGps.easting_sigma[int(i)],
+                                        self.dataGps.northing_sigma[int(i)],
+                                        self.dataGps.height_sigma[int(i)]])) for i in poseIndexes]
+
+    def display(self, verbose=False):
+
+        if verbose:
+            # GPS and odometry in their respective frames (not interesting...)
+            fig, axes = plt.subplots(1,2, sharex=False, sharey=False)
+            axes[0].plot(self.gpsTr[:,0], self.gpsTr[:,1], label="GPS UTM")
+            axes[0].legend(loc="upper right")
+            axes[0].set_xlabel("East (m)")
+            axes[0].set_ylabel("North (m)")
+            axes[0].set_aspect('equal')
+            axes[0].grid()
+            axes[1].plot(self.odometryTr[:,0], self.odometryTr[:,1], label="Raw odometry \"odom frame\"")
+            axes[1].legend(loc="upper right")
+            axes[1].set_xlabel("x (m)")
+            axes[1].set_ylabel("y (m)")
+            axes[1].set_aspect('equal')
+            axes[1].grid()
+
+            fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+            axes.plot((np.array(self.dataGps.child_time)[0:-100] - self.dataGps.child_time[0]) / 1000000.0,
+                      np.array(self.delayGpsOdo)[0:-100] / 1000.0, '--o', label="Delay Gps/Odo", markeredgewidth=0.0)
+            axes.legend(loc="upper right")
+            axes.set_xlabel("Gps pose index")
+            axes.set_ylabel("Delay (ms)")
+            axes.grid()
+
+            fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+            axes[0].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,0], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[0].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,0], '--o', label="Recomp Tokamak", markeredgewidth=0.0)
+            axes[0].legend(loc="upper right")
+            axes[0].set_xlabel("Mission time (s)")
+            axes[0].set_ylabel("East (m)")
+            axes[0].grid()
+            axes[1].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,1], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[1].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,1], '--o', label="Recomp tokamak", markeredgewidth=0.0)
+            axes[1].legend(loc="upper right")
+            axes[0].set_xlabel("Mission time (s)")
+            axes[1].set_ylabel("North (m)")
+            axes[1].grid()
+            axes[2].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,2], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[2].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,2], '--o', label="Recomp tokamak", markeredgewidth=0.0)
+            axes[2].legend(loc="upper right")
+            axes[0].set_xlabel("Mission time (s)")
+            axes[2].set_ylabel("Elevation (m)")
+            axes[2].grid()
 
         # GPS and odometry in LTF (more interesting)
         fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
-        # axes.plot(self.gpsLtfTr[:,0], self.gpsLtfTr[:,1], '--o', label="GPS LTF")
-        # axes.plot(self.odometryLtfTr[:,0], self.odometryLtfTr[:,1], '--o', label="Odometry LTF")
+        axes.plot(self.gpsLtfTr[:,0], self.gpsLtfTr[:,1], '--o', label="GPS LTF", markeredgewidth=0.0)
+        axes.plot(self.odometryLtfTr[:,0], self.odometryLtfTr[:,1], '--o', label="Odometry LTF", markeredgewidth=0.0)
         axes.plot(self.tokamakTr[:,0], self.tokamakTr[:,1], '--o', label="Tokamak")
-        axes.plot(self.robotLtfTr[:,0], self.robotLtfTr[:,1], '--o', label="Robot LTF")
+        axes.plot(self.robotLtfTr[:,0], self.robotLtfTr[:,1], '--o', label="Robot LTF", markeredgewidth=0.0)
         axes.legend(loc="upper right")
         axes.set_xlabel("East (m)")
         axes.set_ylabel("North (m)")
         axes.set_aspect('equal')
         axes.grid()
 
-        fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
-        axes.plot((np.array(self.dataGps.child_time)[0:-100] - self.dataGps.child_time[0]) / 1000000.0,
-                  np.array(self.delayGpsOdo)[0:-100] / 1000.0, '--o', label="Delay Gps/Odo")
-        axes.legend(loc="upper right")
-        axes.set_xlabel("Gps pose index")
-        axes.set_ylabel("Delay (ms)")
-        axes.grid()
 
         plt.show(block=False)
 
