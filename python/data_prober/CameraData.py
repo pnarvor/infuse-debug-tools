@@ -56,6 +56,7 @@ class CameraData:
         self.totalScore             = np.empty([0])
         self.robotToWordTr          = np.empty([0])
         self.robotPoseRetaggedTr    = np.empty([0])
+        self.odometryRetaggedTr  = np.empty([0])
 
         # other data
         self.imageNumber       = []
@@ -63,6 +64,7 @@ class CameraData:
         self.rightToLeft       = InfuseTransform()
         self.robotToWorld      = []
         self.robotPoseRetagged = []
+        self.odometryRetagged  = []
 
     def load(self):
 
@@ -217,13 +219,24 @@ class CameraData:
                                               pose.tr.translation[1],
                                               pose.tr.translation[2]] for pose in self.robotPoseRetagged])
 
-    def display(self, verbose=False):
+    def tag_odometry(self, robotPoseData):
+
+        if not self.filesLoaded:
+            return
+
+        self.odometryRetagged = robotPoseData.interpolate_odometry(self.dataLeft.timestamp)
+        self.odometryRetaggedTr = np.array([[pose.tr.translation[0],
+                                             pose.tr.translation[1],
+                                             pose.tr.translation[2]] for pose in self.odometryRetagged])
+
+    def display(self, verbose=False, blocking=False):
 
         if not self.filesLoaded:
             return
  
         if verbose:
             fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
+            axes[0].set_title(self.cameraName + "_Data : Comparison original and posteriori pose")
             axes[0].plot(self.robotToWorldTr[:,0] - self.robotPoseRetaggedTr[:,0], '--o', label="Pose diff East", markeredgewidth=0.0)
             axes[0].legend(loc="upper right")
             axes[0].set_xlabel("Image number")
@@ -247,6 +260,7 @@ class CameraData:
 
        
         fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+        axes.set_title(self.cameraName + "_Data : Comparison original and posteriori pose")
         axes.plot(self.robotToWorldTr[:,0], self.robotToWorldTr[:,1], '--o', label="Pose tagged in Morocco", markeredgewidth=0.0)
         axes.plot(self.robotPoseRetaggedTr[:,0], self.robotPoseRetaggedTr[:,1], '--o', label="Pose retagged", markeredgewidth=0.0)
         axes.legend(loc="upper right")
@@ -254,7 +268,10 @@ class CameraData:
         axes.set_ylabel("North (m)")
         axes.set_aspect('equal')
         axes.grid()
-        fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
+
+        # fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
+        fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+        axes[0].set_title(self.cameraName + "_Data")
         axes[0].plot(self.stereoDesync / 1000.0, label=self.cameraName+" Stereo desync")
         axes[0].legend(loc="upper right")
         axes[0].set_xlabel("Image index")
@@ -272,11 +289,11 @@ class CameraData:
         axes[2].set_xlabel("Image index")
         axes[2].set_ylabel("Image integrity (?)")
         axes[2].grid()
-        axes[3].plot(self.totalScore, label=self.cameraName+" total score")
-        axes[3].legend(loc="upper right")
-        axes[3].set_xlabel("Image index")
-        axes[3].set_ylabel("Total score")
-        axes[3].grid()
+        # axes[3].plot(self.totalScore, label=self.cameraName+" total score")
+        # axes[3].legend(loc="upper right")
+        # axes[3].set_xlabel("Image index")
+        # axes[3].set_ylabel("Total score")
+        # axes[3].grid()
 
-        plt.show(block=False)
+        plt.show(block=blocking)
 

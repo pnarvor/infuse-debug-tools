@@ -66,13 +66,14 @@ class RobotPoseData:
         self.odoFrameToGTF = None # OdometryFrame (frame in which RMP export its data) to GTF
 
         # non-raw data
-        self.gpsPoses         = []
-        self.gpsLtfPoses      = []
-        self.odometryPoses    = []
-        self.odometryLtfPoses = []
-        self.tokamakPoses     = []
-        self.minTime          = -1
-        self.poseInterpolator = None 
+        self.gpsPoses             = []
+        self.gpsLtfPoses          = []
+        self.odometryPoses        = []
+        self.odometryLtfPoses     = []
+        self.tokamakPoses         = []
+        self.minTime              = -1
+        self.poseInterpolator     = None 
+        self.odometryInterpolator = None 
 
         # data for display
         self.gpsTr         = np.empty([0])
@@ -277,11 +278,31 @@ class RobotPoseData:
                                         self.dataGps.northing_sigma[int(i)],
                                         self.dataGps.height_sigma[int(i)]])) for i in poseIndexes]
 
-    def display(self, verbose=False):
+    def build_odometry_interpolator(self):
+
+        self.odometryInterpolator = interp1d(self.dataOdometry.child_time,
+                                             [i for i in range(len(self.dataOdometry.child_time))],
+                                             kind='nearest',
+                                             bounds_error=False,
+                                             fill_value=0,
+                                             assume_sorted=True)
+
+    def interpolate_odometry(self, stamps):
+
+        if self.odometryInterpolator is None:
+            self.build_odometry_interpolator()
+
+        poseIndexes = self.odometryInterpolator(stamps)
+        return [FullRobotPose(self.dataOdometry.child_time[int(i)],
+                              self.odometryPoses[int(i)],
+                              np.array([0.0, 0.0, 0.0])) for i in poseIndexes]
+
+    def display(self, verbose=False, blocking=False):
 
         if verbose:
             # GPS and odometry in their respective frames (not interesting...)
             fig, axes = plt.subplots(1,2, sharex=False, sharey=False)
+            axes[0].set_title("RobotPoseData : GPS and Odometry")
             axes[0].plot(self.gpsTr[:,0], self.gpsTr[:,1], label="GPS UTM")
             axes[0].legend(loc="upper right")
             axes[0].set_xlabel("East (m)")
@@ -296,6 +317,7 @@ class RobotPoseData:
             axes[1].grid()
 
             fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+            axes.set_title("RobotPoseData : Delay between GPS Position and Odometry Attitude")
             axes.plot((np.array(self.dataGps.child_time)[0:-100] - self.dataGps.child_time[0]) / 1000000.0,
                       np.array(self.delayGpsOdo)[0:-100] / 1000.0, '--o', label="Delay Gps/Odo", markeredgewidth=0.0)
             axes.legend(loc="upper right")
@@ -304,31 +326,33 @@ class RobotPoseData:
             axes.grid()
 
             fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
-            axes[0].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,0], '--o', label="Tokamak", markeredgewidth=0.0)
-            axes[0].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,0], '--o', label="Recomp Tokamak", markeredgewidth=0.0)
+            axes[0].set_title("RobotPoseData : Original Tokamak and a posteriori robot pose")
+            axes[0].plot((np.array(self.dataTokamak.child_time) - self.minTime) / 1000000.0, self.tokamakTr[:,0], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[0].plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, self.robotLtfTr[:,0], '--o', label="Recomp Tokamak", markeredgewidth=0.0)
             axes[0].legend(loc="upper right")
-            axes[0].set_xlabel("Mission time (s)")
+            # axes[0].set_xlabel("Mission time (s)")
             axes[0].set_ylabel("East (m)")
             axes[0].grid()
-            axes[1].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,1], '--o', label="Tokamak", markeredgewidth=0.0)
-            axes[1].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,1], '--o', label="Recomp tokamak", markeredgewidth=0.0)
+            axes[1].plot((np.array(self.dataTokamak.child_time) - self.minTime) / 1000000.0, self.tokamakTr[:,1], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[1].plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, self.robotLtfTr[:,1], '--o', label="Recomp tokamak", markeredgewidth=0.0)
             axes[1].legend(loc="upper right")
-            axes[0].set_xlabel("Mission time (s)")
+            # axes[1].set_xlabel("Mission time (s)")
             axes[1].set_ylabel("North (m)")
             axes[1].grid()
-            axes[2].plot(np.array(self.dataTokamak.child_time) - self.minTime, self.tokamakTr[:,2], '--o', label="Tokamak", markeredgewidth=0.0)
-            axes[2].plot(np.array(self.dataGps.child_time) - self.minTime, self.robotLtfTr[:,2], '--o', label="Recomp tokamak", markeredgewidth=0.0)
+            axes[2].plot((np.array(self.dataTokamak.child_time) - self.minTime) / 1000000.0, self.tokamakTr[:,2], '--o', label="Tokamak", markeredgewidth=0.0)
+            axes[2].plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, self.robotLtfTr[:,2], '--o', label="Recomp tokamak", markeredgewidth=0.0)
             axes[2].legend(loc="upper right")
-            axes[0].set_xlabel("Mission time (s)")
+            axes[2].set_xlabel("Mission time (s)")
             axes[2].set_ylabel("Elevation (m)")
             axes[2].grid()
 
         # GPS and odometry in LTF (more interesting)
         fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+        axes.set_title("RobotPoseData : All traces (transformed to LocalTerrainFrame")
         axes.plot(self.gpsLtfTr[:,0], self.gpsLtfTr[:,1], '--o', label="GPS LTF", markeredgewidth=0.0)
         axes.plot(self.odometryLtfTr[:,0], self.odometryLtfTr[:,1], '--o', label="Odometry LTF", markeredgewidth=0.0)
         axes.plot(self.tokamakTr[:,0], self.tokamakTr[:,1], '--o', label="Tokamak")
-        axes.plot(self.robotLtfTr[:,0], self.robotLtfTr[:,1], '--o', label="Robot LTF", markeredgewidth=0.0)
+        axes.plot(self.robotLtfTr[:,0], self.robotLtfTr[:,1], '--o', label="Robot pose recomposed", markeredgewidth=0.0)
         axes.legend(loc="upper right")
         axes.set_xlabel("East (m)")
         axes.set_ylabel("North (m)")
@@ -336,5 +360,5 @@ class RobotPoseData:
         axes.grid()
 
 
-        plt.show(block=False)
+        plt.show(block=blocking)
 

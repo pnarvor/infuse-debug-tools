@@ -34,12 +34,14 @@ class VelodyneData:
         self.minTime             = -1
         self.robotToWorldTr      = np.empty([0])
         self.robotPoseRetaggedTr = np.empty([0])
+        self.odometryRetaggedTr  = np.empty([0])
 
         # other data
         self.scanNumber        = []
         self.sensorToRobot     = []
         self.robotToWorld      = []
         self.robotPoseRetagged = []
+        self.odometryRetagged  = []
 
     def load(self):
 
@@ -105,18 +107,29 @@ class VelodyneData:
                                               pose.tr.translation[1],
                                               pose.tr.translation[2]] for pose in self.robotPoseRetagged])
 
-    def display(self, verbose=False):
+    def tag_odometry(self, robotPoseData):
+
+        if not self.filesLoaded:
+            return
+
+        self.odometryRetagged = robotPoseData.interpolate_odometry(self.dataVelodyne.cloud_time)
+        self.odometryRetaggedTr = np.array([[pose.tr.translation[0],
+                                             pose.tr.translation[1],
+                                             pose.tr.translation[2]] for pose in self.odometryRetagged])
+    
+    def display(self, verbose=False, blocking=False):
 
         if not self.filesLoaded:
             return 
 
         fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+        axes[0].set_title("VelodyneData")
         axes[0].plot((self.cloudTime - self.poseTime) / 1000.0, label="Desync cloud / pose")
         axes[0].legend(loc="upper right")
         axes[0].set_xlabel("Scan number")
         axes[0].set_ylabel("Desync (ms)")
         axes[0].grid()
-        axes[1].plot(self.nbPoints, label="Desync cloud / pose")
+        axes[1].plot(self.nbPoints, label="Number of points / clouds")
         axes[1].legend(loc="upper right")
         axes[1].set_xlabel("Scan number")
         axes[1].set_ylabel("Number of points")
@@ -127,4 +140,4 @@ class VelodyneData:
         axes[2].set_ylabel("Period (ms)")
         axes[2].grid()
 
-        plt.show(block=False)
+        plt.show(block=blocking)

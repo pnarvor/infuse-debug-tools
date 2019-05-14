@@ -22,6 +22,9 @@ class DataCleaner2:
         self.frontData     = CameraData(dataRootDir, "front")
         self.rearData      = CameraData(dataRootDir, "rear")
 
+        # Global data
+        self.minTime       = -1
+
     def load(self):
 
         self.robotPoseData.load()
@@ -29,10 +32,32 @@ class DataCleaner2:
         self.navData.load()
 
         self.velodyneData.compute_retagged_poses(self.robotPoseData)
+        self.velodyneData.tag_odometry(self.robotPoseData)
         self.navData.compute_retagged_poses(self.robotPoseData)
+        self.navData.tag_odometry(self.robotPoseData)
 
-    def display(self, verbose=False):
+        self.compute_mission_time()
 
-        self.robotPoseData.display(verbose)
-        self.velodyneData.display(verbose)
-        self.navData.display(verbose)
+    def compute_mission_time(self):
+
+        times = []
+        if self.velodyneData.minTime > 0:
+            times.append(self.velodyneData.minTime)
+        if self.navData.minTime > 0:
+            times.append(self.navData.minTime)
+        if self.frontData.minTime > 0:
+            times.append(self.frontData.minTime)
+        if self.rearData.minTime > 0:
+            times.append(self.rearData.minTime)
+        self.minTime = min(times)
+
+        self.velodyneData.minTime = self.minTime
+        self.navData.minTime      = self.minTime
+        self.frontData.minTime    = self.minTime
+        self.rearData.minTime     = self.minTime
+
+    def display(self, verbose=False, blocking=False):
+
+        self.robotPoseData.display(verbose, blocking)
+        self.velodyneData.display(verbose, blocking)
+        self.navData.display(verbose, blocking)
