@@ -31,8 +31,11 @@ def parse_export_plan(filename):
 
     f = open(filename, 'r')
     exportPlan = yaml.safe_load(f)
+    if not "export_name" in exportPlan.keys():
+        raise Exception("No export_name in export plan file")
+    exportName = exportPlan['export_name']
     if not "intervals_to_export" in exportPlan.keys():
-        raise Exception("No intervals to export in export plan file")
+        raise Exception("No intervals_to_export in export plan file")
     if not isinstance(exportPlan['intervals_to_export'], list):
         raise Exception("Export plan parsing error : "
                         + "intervals_to_export item must be a [] list.")
@@ -49,7 +52,7 @@ def parse_export_plan(filename):
     else:
         dataToRemove = exportPlan['data_to_remove']
 
-    return intervalsToExport, dataToRemove;
+    return exportName, intervalsToExport, dataToRemove;
 
 class DataCleaner:
     

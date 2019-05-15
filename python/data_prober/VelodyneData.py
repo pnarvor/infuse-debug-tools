@@ -45,6 +45,7 @@ class VelodyneData:
         self.odometryRetagged  = []
 
         #export plan
+        self.exportName        = ""
         self.scansToRemove     = []
         self.intervalsToExport = []
 
@@ -68,7 +69,7 @@ class VelodyneData:
     def load_export_plan(self):
 
         try:
-            self.intervalsToExport, self.scansToRemove = parse_export_plan(self.exportPlanFilename)
+            self.exportName, self.intervalsToExport, self.scansToRemove = parse_export_plan(self.exportPlanFilename)
         except Exception as e:
             print("Velodyne : No valid export plan available,", e)
             return
