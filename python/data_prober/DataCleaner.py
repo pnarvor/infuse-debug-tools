@@ -27,6 +27,30 @@ def get_pcd_header(filename):
 def spike_detector(data):
    return np.abs(data - medfilt(data, kernel_size=3)) 
 
+def parse_export_plan(filename):
+
+    f = open(filename, 'r')
+    exportPlan = yaml.safe_load(f)
+    if not "intervals_to_export" in exportPlan.keys():
+        raise Exception("No intervals to export in export plan file")
+    if not isinstance(exportPlan['intervals_to_export'], list):
+        raise Exception("Export plan parsing error : "
+                        + "intervals_to_export item must be a [] list.")
+    if not isinstance(exportPlan['intervals_to_export'][0], list):
+        intervalsToExport = [exportPlan['intervals_to_export']]
+    else:
+        intervalsToExport = exportPlan['intervals_to_export']
+    if not "data_to_remove" in exportPlan.keys():
+        print("Warning : No data to remove in export plan"
+              + "Have you got a perfect dataset ?!")
+        return
+    if not isinstance(exportPlan['data_to_remove'], list):
+        dataToRemove = [exportPlan['data_to_remove']]
+    else:
+        dataToRemove = exportPlan['data_to_remove']
+
+    return intervalsToExport, dataToRemove;
+
 class DataCleaner:
     
     def spike_detector_filter(data):

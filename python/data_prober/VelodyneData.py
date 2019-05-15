@@ -6,7 +6,7 @@ from pyquaternion import Quaternion
 from scipy.signal import medfilt
 
 # copied from inscripts.core
-from ruamel.yaml import YAML
+import yaml
 
 from .Metadata import Metadata
 from .InfuseTransform import InfuseTransform
@@ -21,8 +21,9 @@ class VelodyneData:
         self.filesLoaded  = False
 
         # raw file path
-        self.dataFormatFilename  = os.path.join(self.dataRootDir, "velodyne/dataformat.txt")
-        self.dataFilename        = os.path.join(self.dataRootDir, "velodyne/all_metadata.txt")
+        self.dataFormatFilename = os.path.join(self.dataRootDir, "velodyne/dataformat.txt")
+        self.dataFilename       = os.path.join(self.dataRootDir, "velodyne/all_metadata.txt")
+        self.exportPlanFilename = os.path.join(self.dataRootDir, "velodyne/export_plan.yaml")
 
         # raw data file parsing
         self.dataVelodyne = Metadata()
@@ -43,6 +44,10 @@ class VelodyneData:
         self.robotPoseRetagged = []
         self.odometryRetagged  = []
 
+        #export plan
+        self.scansToRemove     = []
+        self.intervalsToExport = []
+
     def load(self):
 
         try:
@@ -59,6 +64,14 @@ class VelodyneData:
 
         self.dataVelodyne.parse_metadata(self.dataFormatFilename,   self.dataFilename)
         self.filesLoaded = True
+
+    def load_export_plan(self):
+
+        try:
+            self.intervalsToExport, self.scansToRemove = parse_export_plan(self.exportPlanFilename)
+        except Exception as e:
+            print("Velodyne : No valid export plan available,", e)
+            return
 
     def load_cloud_data(self):
 
