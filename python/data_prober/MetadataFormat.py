@@ -21,3 +21,13 @@ class MetadataFormat:
         for line in formatFile:
             self.dataFields.append(line.split()[3])
     
+    def write_metadata_format_file(self, filename):
+        formatFile = open(filename, "w")
+        index = 1
+        for field in self.dataFields:
+            if len(self.dataFields) >= 100:
+                line = "# " + format(index, '>3d') + ' - ' + field
+            else:
+                line = "# " + format(index, '>2d') + ' - ' + field
+            formatFile.write(line + "\n")
+            index = index + 1
