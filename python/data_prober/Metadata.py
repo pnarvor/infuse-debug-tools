@@ -18,6 +18,9 @@ class Metadata:
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
     def parse_metadata(self, metadataFormatFilename, metadataFilename):
 
         if not os.path.isfile(metadataFormatFilename):
@@ -71,9 +74,8 @@ class Metadata:
         
         if hasattr(self, name):
             raise Exception("Metadata has already attribute \"" + name + "\" !")
-        self.metadataFormat.append(name)
-        setattr(self, name);
-        self[name] = []
+        self.metadataFormat.dataFields.append(name)
+        setattr(self, name, []);
 
     def write_metadata_files(self, path):
         
@@ -96,7 +98,8 @@ class Metadata:
         # building a list of list of data value
         dataToWrite = []
         for index in self['index']:
-            dataToWrite.append([index])
+            # dataToWrite.append([index])
+            dataToWrite.append([])
         for field in self.metadataFormat.dataFields:
             if field == 'index':
                 continue
@@ -104,13 +107,13 @@ class Metadata:
                 dataLine.append(value)
 
         allMetadataFile = open(allMetadataFilename, 'w')
-        for dataLine in dataToWrite:
-            filename = format(dataLine[0], '05d') + ".txt"
+        for index, dataLine in zip(self['index'], dataToWrite):
+            filename = format(index, '05d') + ".txt"
             metadataFile = open(os.path.join(metadataFolder, filename), 'w')
             
             # Building data string
-            dataString = str(dataLine[1])
-            for value in dataLine[2:]:
+            dataString = str(dataLine[0])
+            for value in dataLine[1:]:
                 dataString = dataString + " " + str(value)
             
             metadataFile.write(dataString)

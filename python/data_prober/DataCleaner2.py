@@ -12,12 +12,13 @@ from .CameraData      import CameraData
 
 class DataCleaner2:
     
-    def __init__(self, dataRootDir):
+    def __init__(self, dataRootDir, exportPath=""):
 
         self.dataRootDir = dataRootDir
+        self.exportPath  = exportPath
 
         self.robotPoseData = RobotPoseData(dataRootDir)
-        self.velodyneData  = VelodyneData(dataRootDir)
+        self.velodyneData  = VelodyneData(dataRootDir, exportPath)
         self.navData       = CameraData(dataRootDir, "nav")
         self.frontData     = CameraData(dataRootDir, "front")
         self.rearData      = CameraData(dataRootDir, "rear")

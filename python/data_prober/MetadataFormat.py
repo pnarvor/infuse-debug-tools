@@ -25,6 +25,8 @@ class MetadataFormat:
         formatFile = open(filename, "w")
         index = 1
         for field in self.dataFields:
+            if field == 'index':
+                continue
             if len(self.dataFields) >= 100:
                 line = "# " + format(index, '>3d') + ' - ' + field
             else:
