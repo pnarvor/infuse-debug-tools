@@ -59,19 +59,23 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
 
     try:
 
-        # print("Executing infuse_data_extractor...")
-        # command = sh.Command("infuse_data_extractor")
-        # command = command.bake(_out="infuse_data_extractor_stdout.txt",
-        #           s             _err="infuse_data_extractor_stderr.txt")
-        # process = command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
-        # print("Done")
+        print("Executing infuse_data_extractor...")
+        command = sh.Command("infuse_data_extractor")
+        command = command.bake(_bg=True, _bg_exc=False,
+                                _out="infuse_data_extractor_stdout.txt",
+                                _err="infuse_data_extractor_stderr.txt")
+        # process = command("-v", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        process = command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        process.wait()
+        print("Done")
 
-        # print("Computing integrity of images")
-        # command = sh.Command(os.path.join(os.path.realpath(__file__), "../../exe/infuse_image_integrity_extractor.py"))
-        # command = command.bake(_out="infuse_image_integrity_extractor_stdout.txt",
-        #                        _err="infuse_image_integrity_extractor_stderr.txt")
-        # process = command("-a", os.path.join(output_dir, rawdata_subdir))
-        # print("Done")
+        print("Computing integrity of images")
+        command = sh.Command(os.path.join(os.path.realpath(__file__), "../../exe/infuse_image_integrity_extractor.py"))
+        command = command.bake(_out="infuse_image_integrity_extractor_stdout.txt",
+                               _err="infuse_image_integrity_extractor_stderr.txt")
+        process = command("-a", os.path.join(output_dir, rawdata_subdir))
+        process.wait()
+        print("Done")
 
         print("Executing infuse_stereo_matching...")
         command = sh.Command("infuse_stereo_matching")

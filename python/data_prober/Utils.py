@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import transformations as tr
 from pyquaternion import Quaternion
@@ -5,22 +6,23 @@ from scipy.signal import medfilt
 
 class EulerAngles: # fixed convention defined by conversion functions
 
-    self.eulerConvention = 'sxyz'
+    eulerConvention = 'sxyz'
 
-    def __init__(roll = 0.0, pitch=0.0, yaw=0.0):
+    def __init__(self, roll = 0.0, pitch=0.0, yaw=0.0):
         self.roll  = roll
         self.pitch = pitch
         self.yaw   = yaw
 
     def from_quaternion(q):
-        angles = tr.euler_from_quaternion(q, self.eulerConvention)
+        angles = tr.euler_from_quaternion(np.array([q[0],q[1],q[2],q[3]]),
+                                          EulerAngles.eulerConvention)
         return EulerAngles(angles[0], angles[1], angles[2])
 
     def to_quaternion(self):
         return Quaternion(tr.quaternion_from_euler(roll,
                                                    pitch,
                                                    yaw,
-                                                   self.eulerConvention))
+                                                   EulerAngles.eulerConvention))
 
 def create_folder(path):
 

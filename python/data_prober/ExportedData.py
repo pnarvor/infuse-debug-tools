@@ -8,6 +8,7 @@ import progressbar
 from shutil import copyfile
 
 from .Utils       import InfuseTransform
+from .Utils       import create_folder
 from .Metadata    import Metadata
 from .DataCleaner import spike_detector
 
@@ -63,8 +64,8 @@ class ExportedData:
             outputPath = os.path.join(self.exportPath, dataSetName)
             create_folder(outputPath)
             self.metadata.write_metadata_files(outputPath)
-            # print("Data copy is commented for debug")
-            self.copy_data(outputPath, interval)
+            print("Data copy is commented for debug")
+            # self.copy_data(outputPath, interval)
             self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
             self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
@@ -144,7 +145,7 @@ class ExportedData:
         self.add_metadata('index', [i for i in range(interval[-1] - interval[0] + 1)])
 
         self.add_metadata('data_time_stamp', [int(t-t0) for t in self.utcStamp[s]])
-        # self.add_metadata('data_utc_time', self.utcTime[s])
+        self.add_metadata('data_utc_time', self.utcStamp[s])
         self.add_metadata('robot_to_world_pose_time', [int(t-t0) for t in self.ltfPoseTime[s]])
         self.add_metadata('robot_to_world_pose_x', [p.translation[0] for p in self.ltfPose[s]])
         self.add_metadata('robot_to_world_pose_y', [p.translation[1] for p in self.ltfPose[s]])
@@ -153,6 +154,9 @@ class ExportedData:
         self.add_metadata('robot_to_world_pose_qx', [p.orientation[1] for p in self.ltfPose[s]])
         self.add_metadata('robot_to_world_pose_qy', [p.orientation[2] for p in self.ltfPose[s]])
         self.add_metadata('robot_to_world_pose_qz', [p.orientation[3] for p in self.ltfPose[s]])
+        self.add_metadata('robot_to_world_pose_roll',  [p.get_euler().roll  for p in self.ltfPose[s]])
+        self.add_metadata('robot_to_world_pose_pitch', [p.get_euler().pitch for p in self.ltfPose[s]])
+        self.add_metadata('robot_to_world_pose_yaw',   [p.get_euler().yaw   for p in self.ltfPose[s]])
         self.add_metadata('robot_to_world_pose_sig_x', [sig[0] for sig in self.gpsStddev[s]])
         self.add_metadata('robot_to_world_pose_sig_y', [sig[1] for sig in self.gpsStddev[s]])
         self.add_metadata('robot_to_world_pose_sig_z', [sig[2] for sig in self.gpsStddev[s]])
@@ -166,6 +170,9 @@ class ExportedData:
         self.add_metadata('odometry_qx', [p.orientation[1] for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_qy', [p.orientation[2] for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_qz', [p.orientation[3] for p in self.odoDeltaPose[s]])
+        self.add_metadata('odometry_roll',  [p.get_euler().roll  for p in self.odoDeltaPose[s]])
+        self.add_metadata('odometry_pitch', [p.get_euler().pitch for p in self.odoDeltaPose[s]])
+        self.add_metadata('odometry_yaw',   [p.get_euler().yaw   for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_curvilinear_abs', [c - self.odoCurvAbs[interval[0]] for c in self.odoCurvAbs[s]])
         self.add_metadata('odometry_speed', self.odoSpeed[s])
         self.add_metadata('sensor_to_robot_pose_x', [p.translation[0] for p in self.sensorPose[s]])
@@ -175,6 +182,9 @@ class ExportedData:
         self.add_metadata('sensor_to_robot_pose_qx',[p.orientation[1] for p in self.sensorPose[s]])
         self.add_metadata('sensor_to_robot_pose_qy',[p.orientation[2] for p in self.sensorPose[s]])
         self.add_metadata('sensor_to_robot_pose_qz',[p.orientation[3] for p in self.sensorPose[s]])
+        self.add_metadata('sensor_to_robot_pose_roll',  [p.get_euler().roll  for p in self.sensorPose[s]])
+        self.add_metadata('sensor_to_robot_pose_pitch', [p.get_euler().pitch for p in self.sensorPose[s]])
+        self.add_metadata('sensor_to_robot_pose_yaw',   [p.get_euler().yaw   for p in self.sensorPose[s]])
 # self.add_metadata('sensor_to_world_pose_x', [p.translation[0] for p in self.sensorWorld[s]])
 # self.add_metadata('sensor_to_world_pose_y', [p.translation[1] for p in self.sensorWorld[s]])
 # self.add_metadata('sensor_to_world_pose_z', [p.translation[2] for p in self.sensorWorld[s]])
