@@ -19,4 +19,4 @@ exportPath = '/media/Nephelae-Data/data/M3-mission/data_export'
 
 dataCleaner = DataCleaner2(dataRootDir, exportPath)
 dataCleaner.load()
-# dataCleaner.display(verbose=False)
+dataCleaner.display(verbose=False)

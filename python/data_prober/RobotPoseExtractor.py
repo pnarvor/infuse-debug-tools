@@ -3,8 +3,8 @@ import numpy as np
 import xml.etree.ElementTree as XmlTree
 from pyquaternion import Quaternion
 
+from .Utils    import InfuseTransform
 from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
 
 class UsableIterator:
 

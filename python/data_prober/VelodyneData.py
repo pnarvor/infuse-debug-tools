@@ -9,9 +9,9 @@ import copy as cp
 # copied from inscripts.core
 import yaml
 
+from .Utils                import InfuseTransform
+from .Utils                import spike_detector
 from .Metadata             import Metadata
-from .InfuseTransform      import InfuseTransform
-from .DataCleaner          import spike_detector
 from .ExportedVelodyneData import ExportedVelodyneData
 
 class VelodyneData:
@@ -46,6 +46,7 @@ class VelodyneData:
         self.robotToWorld      = []
         self.robotPoseRetagged = []
         self.odometryRetagged  = []
+        self.ltfToGtf          = None
 
     def load(self):
 
@@ -67,7 +68,7 @@ class VelodyneData:
     def export(self):
 
         exporter = ExportedVelodyneData(os.path.join(self.dataRootDir, "velodyne"), self.exportPath)
-        exporter.utcStamp    = cp.deepcopy(self.cloudTime)
+        exporter.utcStamp    = list(cp.deepcopy(self.cloudTime))
         exporter.dataIndex   = cp.deepcopy(self.scanNumber)
         exporter.ltfPose     = [p.tr        for p in self.robotPoseRetagged]
         exporter.ltfPoseTime = [p.stamp     for p in self.robotPoseRetagged]
@@ -77,8 +78,11 @@ class VelodyneData:
         exporter.odoPoseTime = [p.stamp     for p in self.odometryRetagged]
         exporter.odoCurvAbs  = [p.curveAbs  for p in self.odometryRetagged]
         exporter.sensorPose  = cp.deepcopy(self.sensorToRobot)
+        exporter.ltfToGtf    = self.ltfToGtf
+        exporter.ltfSpeed    = [p.speed     for p in self.robotPoseRetagged]
+        exporter.odoSpeed    = [p.speed     for p in self.odometryRetagged]
 
-        exporter.nbPoints    = cp.deepcopy(self.nbPoints)
+        exporter.nbPoints    = list(cp.deepcopy(self.nbPoints))
         exporter.bounds = [[xm,xM,ym,yM,zm,zM] for xm,xM,ym,yM,zm,zM in zip(
                                                         self.dataVelodyne.min_x,
                                                         self.dataVelodyne.max_x,
@@ -86,6 +90,7 @@ class VelodyneData:
                                                         self.dataVelodyne.max_y,
                                                         self.dataVelodyne.min_z,
                                                         self.dataVelodyne.max_z)]
+        exporter.parse_export_plan()
         exporter.clean_data()
         exporter.export()
     
@@ -137,6 +142,7 @@ class VelodyneData:
         self.robotPoseRetaggedTr = np.array([[pose.tr.translation[0],
                                               pose.tr.translation[1],
                                               pose.tr.translation[2]] for pose in self.robotPoseRetagged])
+        self.ltfToGtf = robotPoseData.localFrameTr
 
     def tag_odometry(self, robotPoseData):
 

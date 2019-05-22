@@ -6,8 +6,8 @@ from scipy.interpolate import CubicSpline
 from scipy.interpolate import Akima1DInterpolator
 from scipy.interpolate import interp1d
 
+from .Utils    import InfuseTransform
 from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
 
 class InfusePose(InfuseTransform):
 

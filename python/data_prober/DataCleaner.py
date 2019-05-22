@@ -4,8 +4,8 @@ import io
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 
+from .Utils    import InfuseTransform
 from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
 
 def get_pcd_header(filename):
 

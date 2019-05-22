@@ -7,18 +7,9 @@ import yaml
 import progressbar
 from shutil import copyfile
 
-from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
+from .Utils       import InfuseTransform
+from .Metadata    import Metadata
 from .DataCleaner import spike_detector
-
-
-def create_folder(path):
-
-    if os.path.exists(path):
-        raise Exception("Failed to create folder : \"" + path
-                        + "\" already exists !")
-    os.mkdir(path)
-
 
 class ExportedData:
 
@@ -29,9 +20,11 @@ class ExportedData:
         self.exportPlanFilename = exportPlanFilename
         self.dataPaths          = [] # set by superclass 
         self.dataExportSubPaths = [] # set by superclass
-
         self.intervalsToExport  = {} # keys = export name, items = intervals in time ???
         self.dataToRemove       = [] # list of data points to remove
+
+        # Some export filenames
+        self.local_frame_file   = "reference_frame.yaml"
        
         # filled in data
         # self.startTime    = []
@@ -48,6 +41,10 @@ class ExportedData:
         self.odoCurvAbs   = []
 
         self.sensorPose   = []
+        self.ltfToGtf     = None
+
+        self.ltfSpeed     = []
+        self.odoSpeed     = []
 
         # computed data
         self.odoDeltaPose = []
@@ -58,14 +55,18 @@ class ExportedData:
 
     def export(self):
        
-        self.parse_export_plan()
+        # self.parse_export_plan()
+        # self.clean_data()
         for dataSetName in self.intervalsToExport.keys():
             interval = self.intervalsToExport[dataSetName]
             self.build_metadata_struct(interval)
             outputPath = os.path.join(self.exportPath, dataSetName)
             create_folder(outputPath)
             self.metadata.write_metadata_files(outputPath)
+            # print("Data copy is commented for debug")
             self.copy_data(outputPath, interval)
+            self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
+            self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
     def parse_export_plan(self):
     
@@ -88,12 +89,13 @@ class ExportedData:
         
     def clean_data(self):
 
+        print("Clean data poses : ", self.dataToRemove)
         self.dataIndex = [i for i in range(len(self.utcStamp))]
 
         for index in reversed(self.dataToRemove):
 
             self.dataIndex.pop(index)
-            self.startTime.pop(index)
+            # self.startTime.pop(index)
             self.utcStamp.pop(index)
             self.ltfPose.pop(index)
             self.ltfPoseTime.pop(index)
@@ -103,8 +105,11 @@ class ExportedData:
             self.odoPoseTime.pop(index)
             self.odoCurvAbs.pop(index)
 
+            self.ltfSpeed.pop(index)
+            self.odoSpeed.pop(index)
+
             # removing elements is modifing the intervals ot export
-            for inter in intervaToExport.items():
+            for inter in self.intervalsToExport.values():
                 if index < inter[0]:
                     inter[0] = inter[0] - 1
                 if index <= inter[-1]:
@@ -152,6 +157,7 @@ class ExportedData:
         self.add_metadata('robot_to_world_pose_sig_y', [sig[1] for sig in self.gpsStddev[s]])
         self.add_metadata('robot_to_world_pose_sig_z', [sig[2] for sig in self.gpsStddev[s]])
         self.add_metadata('robot_to_world_pose_curvilinear_abs', [c - self.ltfCurvAbs[interval[0]] for c in self.ltfCurvAbs[s]])
+        self.add_metadata('robot_to_world_speed', self.ltfSpeed[s])
         self.add_metadata('odometry_time', [int(t-t0) for t in self.odoPoseTime[s]])
         self.add_metadata('odometry_x', [p.translation[0] for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_y', [p.translation[1] for p in self.odoDeltaPose[s]])
@@ -161,6 +167,7 @@ class ExportedData:
         self.add_metadata('odometry_qy', [p.orientation[2] for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_qz', [p.orientation[3] for p in self.odoDeltaPose[s]])
         self.add_metadata('odometry_curvilinear_abs', [c - self.odoCurvAbs[interval[0]] for c in self.odoCurvAbs[s]])
+        self.add_metadata('odometry_speed', self.odoSpeed[s])
         self.add_metadata('sensor_to_robot_pose_x', [p.translation[0] for p in self.sensorPose[s]])
         self.add_metadata('sensor_to_robot_pose_y', [p.translation[1] for p in self.sensorPose[s]])
         self.add_metadata('sensor_to_robot_pose_z', [p.translation[2] for p in self.sensorPose[s]])
@@ -185,8 +192,7 @@ class ExportedData:
             exportSubPaths.append(os.path.join(outputPath, expPath))
             os.makedirs(os.path.join(outputPath, expPath))
 
-        
-        print("Copying data files. This may take time.") 
+        print("Copying data files. This may take a while.") 
         for i, dataIndex in zip(progressbar.progressbar(range(len(self.metadata.index))),
                                 self.dataIndex[interval[0]:interval[-1]+1]):
             inputStr  = format(dataIndex, '05d')
@@ -200,5 +206,24 @@ class ExportedData:
                 # print("Copying", os.path.join(dataPath, inputStr + ext), "to",
                 #                  os.path.join(expPath, outputStr + ext))
 
+    def write_local_frame_file(self, path):
+        f = open(path, 'w')
+        f.write("# Origin of reference frame expressed in the UTM 30R tile\n")
+        f.write("---\n")
+        f.write("translation: [" + (str(self.ltfToGtf.translation[0]) + ", "
+                                 +  str(self.ltfToGtf.translation[1]) + ", "
+                                 +  str(self.ltfToGtf.translation[2]) + "]\n"))
 
-
+    def write_odo_frame_file(self, path):
+        f = open(path, 'w')
+        f.write("# Starting position of the robot expressed in the local frame\n")
+        f.write("# (Same pose as the first robot_to_world position)\n")
+        f.write("# orientation in (qw, qx, qy, qz) format\n")
+        f.write("---\n")
+        f.write("translation: [" + (str(self.ltfPose[0].translation[0]) + ", "
+                                 +  str(self.ltfPose[0].translation[1]) + ", "
+                                 +  str(self.ltfPose[0].translation[2]) + "]\n"))
+        f.write("orientation: [" + (str(self.ltfPose[0].orientation[0]) + ", "
+                                 +  str(self.ltfPose[0].orientation[1]) + ", "
+                                 +  str(self.ltfPose[0].orientation[2]) + ", "
+                                 +  str(self.ltfPose[0].orientation[3]) + "]\n"))

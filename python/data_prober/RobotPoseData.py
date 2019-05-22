@@ -7,10 +7,12 @@ import xml.etree.ElementTree as XmlTree
 from scipy.signal import medfilt
 # from scipy.interpolate import NearestNDInterpolator
 from scipy.interpolate import interp1d
+from scipy.signal import medfilt
+from scipy.signal import convolve
 
+from .Utils    import InfuseTransform
+from .Utils    import spike_detector
 from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
-from .DataCleaner import spike_detector
 
 def find_urdf(filenameHint):
     [path, hint] = os.path.split(filenameHint)
@@ -42,12 +44,29 @@ def compute_curvilinear_abscisse(poseList):
         lastPose = pose
     return abscisse
 
+def compute_speed(curvAbs, stamps):
+    speed = [0.0]
+    lastAbs   = curvAbs[0]
+    lastStamp = stamps[0]
+    for absc, stamp in zip(curvAbs[1:], stamps[1:]):
+        if stamp - lastStamp <= 1e-8:
+            speed.append(-1)
+        else:
+            speed.append(1000000.0*(absc - lastAbs) / ((stamp - lastStamp)))
+        lastAbs   = absc
+        lastStamp = stamp
+    # return medfilt(speed, kernel_size=2*int(20.0/2)+1)
+    # return medfilt(speed, kernel_size=101)
+    return convolve(speed, np.ones(101) / 101.0, mode='same') 
+    # return speed
+
 class FullRobotPose:
-    def __init__(self, stamp, tr, gpsStddev, curveAbs):
+    def __init__(self, stamp, tr, gpsStddev, curveAbs, speed):
         self.stamp = stamp
         self.tr = tr
         self.gpsStddev = gpsStddev
-        self.curveAbs = curveAbs
+        self.curveAbs  = curveAbs
+        self.speed     = speed 
 
 class RobotPoseData:
 
@@ -85,10 +104,12 @@ class RobotPoseData:
         self.robotLtfPoses        = []
         self.minTime              = -1
         self.poseInterpolator     = None 
-        self.robotLtfPoses = []
+        self.robotLtfPoses        = []
         self.odometryInterpolator = None
         self.robotPoseCurveAbs    = []
         self.odometryCurveAbs     = []
+        self.robotLtfSpeed        = []
+        self.odometrySpeed        = []
 
         # data for display
         self.gpsTr         = np.empty([0])
@@ -112,6 +133,8 @@ class RobotPoseData:
         self.compute_robot_pose_ltf()
         self.robotPoseCurveAbs = compute_curvilinear_abscisse(self.robotLtfPoses)
         self.odometryCurveAbs  = compute_curvilinear_abscisse(self.odometryPoses)
+        self.robotLtfSpeed     = compute_speed(self.robotPoseCurveAbs, self.dataGps.child_time)
+        self.odometrySpeed     = compute_speed(self.odometryCurveAbs , self.dataOdometry.child_time)
         print("Done !")
 
     def load_files(self):
@@ -294,7 +317,8 @@ class RobotPoseData:
                               np.array([self.dataGps.easting_sigma[int(i)],
                                         self.dataGps.northing_sigma[int(i)],
                                         self.dataGps.height_sigma[int(i)]]),
-                                        self.robotPoseCurveAbs[int(i)]) for i in poseIndexes]
+                                        self.robotPoseCurveAbs[int(i)],
+                                        self.robotLtfSpeed[int(i)]) for i in poseIndexes]
 
     def build_odometry_interpolator(self):
 
@@ -314,7 +338,8 @@ class RobotPoseData:
         return [FullRobotPose(self.dataOdometry.child_time[int(i)],
                               self.odometryPoses[int(i)],
                               np.array([0.0, 0.0, 0.0]),
-                              self.odometryCurveAbs[int(i)]) for i in poseIndexes]
+                              self.odometryCurveAbs[int(i)],
+                              self.odometrySpeed[int(i)]) for i in poseIndexes]
 
     def display(self, verbose=False, blocking=False):
 

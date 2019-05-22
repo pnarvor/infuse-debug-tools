@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import io
 from pyquaternion import Quaternion
 
-from .Metadata        import Metadata
-from .InfuseTransform import InfuseTransform
-from .DataCleaner     import spike_detector
-from .ExportedData    import ExportedData
+from .Utils        import InfuseTransform
+from .Utils        import spike_detector
+from .Metadata     import Metadata
+from .ExportedData import ExportedData
 
 class ExportedVelodyneData(ExportedData):
 
@@ -26,7 +26,10 @@ class ExportedVelodyneData(ExportedData):
 
         super().clean_data()
 
+        print("Clean data velodyne : ", self.dataToRemove)
+
         for index in reversed(self.dataToRemove):
+            print("Popping nbPoint : ", self.nbPoints[index])
             self.nbPoints.pop(index)
             self.bounds.pop(index)
 

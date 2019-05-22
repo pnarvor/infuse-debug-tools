@@ -8,9 +8,9 @@ from scipy.signal import medfilt
 # copied from inscripts.core
 from ruamel.yaml import YAML
 
+from .Utils    import InfuseTransform
+from .Utils    import spike_detector
 from .Metadata import Metadata
-from .InfuseTransform import InfuseTransform
-from .DataCleaner import spike_detector
 
 class CameraData:
 
