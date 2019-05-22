@@ -1,6 +1,8 @@
 import os
-import numpy as np
-import transformations as tr
+import numpy             as np
+import transformations   as tr
+import matplotlib.pyplot as plt
+
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 
@@ -63,6 +65,23 @@ class InfuseTransform:
 
     def get_euler(self):
         return EulerAngles.from_quaternion(self.orientation)
+
+def add_twiny(ax0, newSpan, label=""):
+    
+    ax1 = ax0.twiny()
+    ax1.set_xlim(newSpan[0], newSpan[-1])
+    ax1.set_xlabel(label)
+
+def plot_highlighted(ax, yValues, xValues=[], highlighted=[], label=""):
+
+    if len(xValues) == 0:
+        ax.plot(yValues, label=label)
+        if len(highlighted) > 0:
+            ax.plot(highlighted, [yValues[i] for i in  highlighted], 'or')
+    else:
+        ax.plot(xValues, yValues, label=label)
+        if len(highlighted) > 0:
+            ax.plot([xValues[i] for i in  highlighted], [yValues[i] for i in  highlighted], 'or')
 
 # def get_pcd_header(filename):
 # 

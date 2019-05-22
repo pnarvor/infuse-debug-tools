@@ -341,6 +341,10 @@ class RobotPoseData:
                               self.odometryCurveAbs[int(i)],
                               self.odometrySpeed[int(i)]) for i in poseIndexes]
 
+    def time_span(self):
+        return [(self.dataOdometry.child_time[0] - self.minTime) / 1000000.0,
+               (self.dataOdometry.child_time[-1] - self.minTime) / 1000000.0]
+
     def display(self, verbose=False, blocking=False):
 
         if verbose:
@@ -368,6 +372,7 @@ class RobotPoseData:
             axes.set_xlabel("Gps pose index")
             axes.set_ylabel("Delay (ms)")
             axes.grid()
+            add_twiny(axes, self.time_span(), label="Mission time (s)")
 
             fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
             axes.set_title("RobotPoseData : Curvilinear abscisses")
@@ -398,6 +403,16 @@ class RobotPoseData:
             axes[2].set_xlabel("Mission time (s)")
             axes[2].set_ylabel("Elevation (m)")
             axes[2].grid()
+
+            fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+            axes.set_title("RobotPoseData : All traces (transformed to LocalTerrainFrame")
+            axes.plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, 100.0*np.array(self.dataGps.easting_sigma),  label="Easting sigma")
+            axes.plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, 100.0*np.array(self.dataGps.northing_sigma), label="Northing sigma")
+            axes.plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, 100.0*np.array(self.dataGps.height_sigma),   label="Height sigma")
+            axes.legend(loc="upper right")
+            axes.set_xlabel("Mission time (s)")
+            axes.set_ylabel("GPS sigma (cm)")
+            axes.grid()
 
         # GPS and odometry in LTF (more interesting)
         fig, axes = plt.subplots(1,1, sharex=False, sharey=False)

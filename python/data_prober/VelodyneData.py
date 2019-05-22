@@ -11,6 +11,8 @@ import yaml
 
 from .Utils                import InfuseTransform
 from .Utils                import spike_detector
+from .Utils                import add_twiny
+from .Utils                import plot_highlighted
 from .Metadata             import Metadata
 from .ExportedVelodyneData import ExportedVelodyneData
 
@@ -47,6 +49,12 @@ class VelodyneData:
         self.robotPoseRetagged = []
         self.odometryRetagged  = []
         self.ltfToGtf          = None
+
+        # Auto detect broken data
+        self.suggestedBroken    = []
+        self.scanPoseDesyncThreshold = 150              # desync in ms
+        self.pointsThreshold         = 5000               # th in spike_detector(nbPoints)
+        self.maxGpsSigThreshold      = [5.0, 5.0, 10.0] # threshold of gps sigma in cm
 
     def load(self):
 
@@ -90,6 +98,7 @@ class VelodyneData:
                                                         self.dataVelodyne.max_y,
                                                         self.dataVelodyne.min_z,
                                                         self.dataVelodyne.max_z)]
+
         exporter.parse_export_plan()
         exporter.clean_data()
         exporter.export()
@@ -153,28 +162,67 @@ class VelodyneData:
         self.odometryRetaggedTr = np.array([[pose.tr.translation[0],
                                              pose.tr.translation[1],
                                              pose.tr.translation[2]] for pose in self.odometryRetagged])
+    def time_span(self):
+        return [(self.cloudTime[0] - self.minTime) / 1000000.0,
+               (self.cloudTime[-1] - self.minTime) / 1000000.0]
+
+    def suggest_broken_data(self):
+        
+        self.suggestedBroken = []
+
+        desync = abs((self.cloudTime - self.poseTime) / 1000.0)
+        self.suggestedBroken.extend(np.where(desync > self.scanPoseDesyncThreshold)[0].tolist())
+
+        nbPoints = spike_detector(self.nbPoints)
+        self.suggestedBroken.extend(np.where(nbPoints > self.pointsThreshold)[0].tolist())
+
+        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
+        self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
+        self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
+        self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
+
+        self.suggestedBroken.sort()
+        print("Velodyne suggested scans to remove :\n", self.suggestedBroken)
 
     def display(self, verbose=False, blocking=False):
 
         if not self.filesLoaded:
-            return 
+            return
+
+        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
 
         fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
         axes[0].set_title("VelodyneData")
-        axes[0].plot((self.cloudTime - self.poseTime) / 1000.0, label="Desync cloud / pose")
+        # axes[0].plot((self.cloudTime - self.poseTime) / 1000.0, label="Desync cloud / pose")
+        plot_highlighted(axes[0], (self.cloudTime - self.poseTime) / 1000.0, highlighted=self.suggestedBroken, label="Desync cloud / pose")
         axes[0].legend(loc="upper right")
         axes[0].set_xlabel("Scan number")
         axes[0].set_ylabel("Desync (ms)")
         axes[0].grid()
+        add_twiny(axes[0], self.time_span(), label="Mission time (s)")
         axes[1].plot(self.nbPoints, label="Number of points / clouds")
-        axes[1].legend(loc="upper right")
+        # axes[1].plot(spike_detector(self.nbPoints), label="Number of points / clouds")
+        plot_highlighted(axes[1], spike_detector(self.nbPoints), highlighted=self.suggestedBroken, label="Number of points / clouds")
+        axes[1].legend(loc="lower right")
         axes[1].set_xlabel("Scan number")
         axes[1].set_ylabel("Number of points")
         axes[1].grid()
-        axes[2].plot((self.cloudTime[1:] - self.cloudTime[:-1]) / 1000.0, label="Period")
+        add_twiny(axes[1], self.time_span(), label="Mission time (s)")
+        # axes[2].plot(gpsSigma[:,0], label="Easting  sigma")
+        # axes[2].plot(gpsSigma[:,1], label="Northing sigma")
+        # axes[2].plot(gpsSigma[:,2], label="Height   sigma")
+        plot_highlighted(axes[2], gpsSigma[:,0], highlighted=self.suggestedBroken, label="Easting  sigma")
+        plot_highlighted(axes[2], gpsSigma[:,1], highlighted=self.suggestedBroken, label="Northing sigma")
+        plot_highlighted(axes[2], gpsSigma[:,2], highlighted=self.suggestedBroken, label="Height   sigma")
         axes[2].legend(loc="upper right")
         axes[2].set_xlabel("Scan number")
-        axes[2].set_ylabel("Period (ms)")
+        axes[2].set_ylabel("GPS sigma (cm)")
         axes[2].grid()
+        # axes[3].plot((self.cloudTime[1:] - self.cloudTime[:-1]) / 1000.0, label="Period")
+        # axes[3].legend(loc="upper right")
+        # axes[3].set_xlabel("Scan number")
+        # axes[3].set_ylabel("Period (ms)")
+        # axes[3].grid()
+        add_twiny(axes[2], self.time_span(), label="Mission time (s)")
 
         plt.show(block=blocking)

@@ -10,6 +10,8 @@ from ruamel.yaml import YAML
 
 from .Utils    import InfuseTransform
 from .Utils    import spike_detector
+from .Utils    import add_twiny
+from .Utils    import plot_highlighted
 from .Metadata import Metadata
 
 class CameraData:
@@ -65,6 +67,12 @@ class CameraData:
         self.robotToWorld      = []
         self.robotPoseRetagged = []
         self.odometryRetagged  = []
+
+        # Auto detect broken data
+        self.suggestedBroken = []
+        self.desyncThreshold    = 50               # desync in ms
+        self.pairedThreshold    = 15               # th in spike_detector(disparityScoreFiltered)
+        self.maxGpsSigThreshold = [5.0, 5.0, 10.0] # threshold of gps sigma in cm
 
     def load(self):
 
@@ -228,6 +236,27 @@ class CameraData:
         self.odometryRetaggedTr = np.array([[pose.tr.translation[0],
                                              pose.tr.translation[1],
                                              pose.tr.translation[2]] for pose in self.odometryRetagged])
+    def time_span(self):
+        return [(self.stereoStamps[0] - self.minTime) / 1000000.0,
+               (self.stereoStamps[-1] - self.minTime) / 1000000.0]
+
+    def suggest_broken_data(self):
+        
+        self.suggestedBroken = []
+
+        desync = abs(self.stereoDesync / 1000.0)
+        self.suggestedBroken.extend(np.where(desync > self.desyncThreshold)[0].tolist())
+
+        nbPoints = spike_detector(self.disparityScoreFiltered)
+        self.suggestedBroken.extend(np.where(nbPoints > self.pairedThreshold)[0].tolist())
+
+        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
+        self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
+        self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
+        self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
+
+        self.suggestedBroken.sort()
+        print(self.cameraName + "_cam suggested images to remove :\n", self.suggestedBroken)
 
     def display(self, verbose=False, blocking=False):
 
@@ -242,58 +271,75 @@ class CameraData:
             axes[0].set_xlabel("Image number")
             axes[0].set_ylabel("Diff (m)")
             axes[0].grid()
+            add_twiny(axes[0], self.time_span(), label="Mission time (s)")
             axes[1].plot(self.robotToWorldTr[:,1] - self.robotPoseRetaggedTr[:,1], '--o', label="Pose diff North", markeredgewidth=0.0)
             axes[1].legend(loc="upper right")
             axes[1].set_xlabel("Image number")
             axes[1].set_ylabel("Diff (m)")
             axes[1].grid()
+            add_twiny(axes[1], self.time_span(), label="Mission time (s)")
             axes[2].plot(self.robotToWorldTr[:,2] - self.robotPoseRetaggedTr[:,2], '--o', label="Pose diff Elevation", markeredgewidth=0.0)
             axes[2].legend(loc="upper right")
             axes[2].set_xlabel("Image number")
             axes[2].set_ylabel("Diff (m)")
             axes[2].grid()
+            add_twiny(axes[2], self.time_span(), label="Mission time (s)")
             axes[3].plot(np.linalg.norm(self.robotToWorldTr - self.robotPoseRetaggedTr, axis=1), '--o', label="Pose diff Norm", markeredgewidth=0.0)
             axes[3].legend(loc="upper right")
             axes[3].set_xlabel("Image number")
             axes[3].set_ylabel("Diff (m)")
             axes[3].grid()
+            add_twiny(axes[3], self.time_span(), label="Mission time (s)")
 
        
-        fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
-        axes.set_title(self.cameraName + "_Data : Comparison original and posteriori pose")
-        axes.plot(self.robotToWorldTr[:,0], self.robotToWorldTr[:,1], '--o', label="Pose tagged in Morocco", markeredgewidth=0.0)
-        axes.plot(self.robotPoseRetaggedTr[:,0], self.robotPoseRetaggedTr[:,1], '--o', label="Pose retagged", markeredgewidth=0.0)
-        axes.legend(loc="upper right")
-        axes.set_xlabel("East (m)")
-        axes.set_ylabel("North (m)")
-        axes.set_aspect('equal')
-        axes.grid()
+            fig, axes = plt.subplots(1,1, sharex=False, sharey=False)
+            axes.set_title(self.cameraName + "_Data : Comparison original and posteriori pose")
+            axes.plot(self.robotToWorldTr[:,0], self.robotToWorldTr[:,1], '--o', label="Pose tagged in Morocco", markeredgewidth=0.0)
+            axes.plot(self.robotPoseRetaggedTr[:,0], self.robotPoseRetaggedTr[:,1], '--o', label="Pose retagged", markeredgewidth=0.0)
+            axes.legend(loc="upper right")
+            axes.set_xlabel("East (m)")
+            axes.set_ylabel("North (m)")
+            axes.set_aspect('equal')
+            axes.grid()
+            add_twiny(axes, self.time_span(), label="Mission time (s)")
 
-        # fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
-        fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
+
+        fig, axes = plt.subplots(4,1, sharex=True, sharey=False)
         axes[0].set_title(self.cameraName + "_Data")
-        axes[0].plot(self.stereoDesync / 1000.0, label=self.cameraName+" Stereo desync")
+        # axes[0].plot(self.stereoDesync / 1000.0, label=self.cameraName+" Stereo desync")
+        plot_highlighted(axes[0], self.stereoDesync / 1000.0, highlighted=self.suggestedBroken, label=self.cameraName+" Stereo desync")
         axes[0].legend(loc="upper right")
         axes[0].set_xlabel("Image index")
         axes[0].set_ylabel("Desync (ms)")
         axes[0].grid()
+        add_twiny(axes[0], self.time_span(), label="Mission time (s)")
         axes[1].plot(self.disparityScore, label=self.cameraName+" disparity score")
-        axes[1].plot(self.disparityScoreFiltered, label=self.cameraName+" disparity score filtered")
+        # axes[1].plot(self.disparityScoreFiltered, label=self.cameraName+" disparity score filtered")
+        plot_highlighted(axes[1], self.disparityScoreFiltered, highlighted=self.suggestedBroken, label=self.cameraName+" disparity score filtered")
         axes[1].legend(loc="upper right")
         axes[1].set_xlabel("Image index")
         axes[1].set_ylabel("% unpaired pixels")
         axes[1].grid()
+        add_twiny(axes[1], self.time_span(), label="Mission time (s)")
         axes[2].plot(self.leftIntegrity, label=self.cameraName+" left integrity")
         axes[2].plot(self.rightIntegrity, label=self.cameraName+" right integrity")
         axes[2].legend(loc="upper right")
         axes[2].set_xlabel("Image index")
         axes[2].set_ylabel("Image integrity (?)")
         axes[2].grid()
-        # axes[3].plot(self.totalScore, label=self.cameraName+" total score")
-        # axes[3].legend(loc="upper right")
-        # axes[3].set_xlabel("Image index")
-        # axes[3].set_ylabel("Total score")
-        # axes[3].grid()
+        add_twiny(axes[2], self.time_span(), label="Mission time (s)")
+        # axes[3].plot(gpsSigma[:,0], label="Easting  sigma")
+        # axes[3].plot(gpsSigma[:,1], label="Northing sigma")
+        # axes[3].plot(gpsSigma[:,2], label="Height   sigma")
+        plot_highlighted(axes[3], gpsSigma[:,0], highlighted=self.suggestedBroken, label="Easting  sigma")
+        plot_highlighted(axes[3], gpsSigma[:,1], highlighted=self.suggestedBroken, label="Northing sigma")
+        plot_highlighted(axes[3], gpsSigma[:,2], highlighted=self.suggestedBroken, label="Height   sigma")
+        axes[3].legend(loc="upper right")
+        axes[3].set_xlabel("Scan number")
+        axes[3].set_ylabel("GPS sigma (cm)")
+        axes[3].grid()
+        add_twiny(axes[3], self.time_span(), label="Mission time (s)")
 
         plt.show(block=blocking)
 
