@@ -1,12 +1,11 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 import io
+import matplotlib.pyplot as plt
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 import copy as cp
 
-# copied from inscripts.core
 import yaml
 
 from .Utils                import InfuseTransform
@@ -53,7 +52,7 @@ class VelodyneData:
         # Auto detect broken data
         self.suggestedBroken    = []
         self.scanPoseDesyncThreshold = 150              # desync in ms
-        self.pointsThreshold         = 5000               # th in spike_detector(nbPoints)
+        self.pointsThreshold         = 0.2              # th in %/100 spike_detector(nbPoints)
         self.maxGpsSigThreshold      = [5.0, 5.0, 10.0] # threshold of gps sigma in cm
 
     def load(self):
@@ -102,7 +101,6 @@ class VelodyneData:
         exporter.parse_export_plan()
         exporter.clean_data()
         exporter.export()
-    
 
     def load_cloud_data(self):
 
@@ -174,7 +172,7 @@ class VelodyneData:
         self.suggestedBroken.extend(np.where(desync > self.scanPoseDesyncThreshold)[0].tolist())
 
         nbPoints = spike_detector(self.nbPoints)
-        self.suggestedBroken.extend(np.where(nbPoints > self.pointsThreshold)[0].tolist())
+        self.suggestedBroken.extend(np.where(nbPoints > np.amax(nbPoints)*self.pointsThreshold)[0].tolist())
 
         gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
         self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
