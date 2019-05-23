@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 from pyquaternion import Quaternion
+import copy as cp
 
 from .Utils        import InfuseTransform
 from .Utils        import spike_detector
@@ -11,16 +12,47 @@ from .ExportedData import ExportedData
 
 class ExportedVelodyneData(ExportedData):
 
-    def __init__(self, dataRootDir, exportPath=""):
-        super().__init__(os.path.join(dataRootDir, "export_plan.yaml"), exportPath)
+    # def __init__(self, dataRootDir, exportPath=""):
+    #     super().__init__(os.path.join(dataRootDir, "export_plan.yaml"), exportPath)
 
-        self.nbPoints = []
-        self.bounds   = []
+    #     self.nbPoints = []
+    #     self.bounds   = []
 
-        self.dataPaths = [os.path.join(dataRootDir, "data"),
-                          os.path.join(dataRootDir, "pngs")]
+    #     self.dataPaths = [os.path.join(dataRootDir, "data"),
+    #                       os.path.join(dataRootDir, "pngs")]
+    #     self.dataExtensions = ['.pcd', '.png']
+    #     self.dataExportSubPaths = ["data", "pngs"]
+
+    def __init__(self, velodyneData, dataToRemove):
+        super().__init__(velodyneData.dataRootDir, dataToRemove)
+
+        self.dataPaths = [os.path.join(self.dataRootDir, "data"),
+                          os.path.join(self.dataRootDir, "pngs")]
         self.dataExtensions = ['.pcd', '.png']
         self.dataExportSubPaths = ["data", "pngs"]
+        
+        self.minTime     = velodyneData.minTime
+        self.utcStamp    = list(cp.deepcopy(velodyneData.cloudTime))
+        self.dataIndex   = cp.deepcopy(velodyneData.scanNumber)
+        self.ltfPose     = [p.tr        for p in velodyneData.robotPoseRetagged]
+        self.ltfPoseTime = [p.stamp     for p in velodyneData.robotPoseRetagged]
+        self.ltfCurvAbs  = [p.curveAbs  for p in velodyneData.robotPoseRetagged]
+        self.gpsStddev   = [p.gpsStddev for p in velodyneData.robotPoseRetagged]
+        self.odoAbsPose  = [p.tr        for p in velodyneData.odometryRetagged]
+        self.odoPoseTime = [p.stamp     for p in velodyneData.odometryRetagged]
+        self.odoCurvAbs  = [p.curveAbs  for p in velodyneData.odometryRetagged]
+        self.sensorPose  = cp.deepcopy(velodyneData.sensorToRobot)
+        self.ltfToGtf    = velodyneData.ltfToGtf
+        self.ltfSpeed    = [p.speed     for p in velodyneData.robotPoseRetagged]
+        self.odoSpeed    = [p.speed     for p in velodyneData.odometryRetagged]
+        self.nbPoints    = list(cp.deepcopy(velodyneData.nbPoints))
+        self.bounds = [[xm,xM,ym,yM,zm,zM] for xm,xM,ym,yM,zm,zM in zip(
+                                                    velodyneData.dataVelodyne.min_x,
+                                                    velodyneData.dataVelodyne.max_x,
+                                                    velodyneData.dataVelodyne.min_y,
+                                                    velodyneData.dataVelodyne.max_y,
+                                                    velodyneData.dataVelodyne.min_z,
+                                                    velodyneData.dataVelodyne.max_z)]
 
     def clean_data(self):
 
@@ -35,15 +67,16 @@ class ExportedVelodyneData(ExportedData):
 
         self.dataToRemove = []
 
-    def build_metadata_struct(self, interval):
+    def build_metadata_struct(self, interval, t0):
 
         if len(interval) == 0:
             raise Exception("Nothing to export : issue with export plan ?")
 
-        super().build_metadata_struct(interval)
+        super().build_metadata_struct(interval, t0)
 
-        t0 = self.utcStamp[interval[0]]
+        # t0 = self.utcStamp[interval[0]]
         # t0 = self.minTime
+        interval = self.time_to_index(interval, self.utcStamp)
         s = slice(interval[0], interval[-1] + 1)
 
         self.add_metadata('cloud_number_of_points', [int(n) for n in self.nbPoints[s]])

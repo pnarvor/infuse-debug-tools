@@ -11,20 +11,31 @@ from .RobotPoseData import RobotPoseData
 from .VelodyneData  import VelodyneData
 from .CameraData    import CameraData
 
+from .ExportedVelodyneData import ExportedVelodyneData
+from .ExportedCameraData   import ExportedCameraData
+
 class DataCleaner2:
     
     def __init__(self, dataRootDir, exportPath=""):
 
-        self.dataRootDir    = dataRootDir
-        self.exportPath     = exportPath
-        self.exportPlanPath = os.path.join(dataRootDir, "export_plan.yaml")
+        self.dataRootDir        = dataRootDir
+        self.exportPath         = exportPath
+        self.exportPlanFilename = os.path.join(dataRootDir, "export_plan.yaml")
+
+        self.sensors = ['velodyne', 'nav_cam', 'front_cam', 'rear_cam', 'pano_cam']
+        # self.sensors = ['velodyne', 'nav_cam', 'front_cam', 'rear_cam']
 
         self.robotPoseData = RobotPoseData(dataRootDir)
-        self.velodyneData  = VelodyneData(dataRootDir, exportPath)
-        self.navData       = CameraData(dataRootDir, "nav"  , exportPath)
-        self.frontData     = CameraData(dataRootDir, "front", exportPath)
-        self.rearData      = CameraData(dataRootDir, "rear" , exportPath)
-
+        # self.velodyneData  = VelodyneData(dataRootDir, exportPath)
+        # self.navData       = CameraData(dataRootDir, "nav"  , exportPath)
+        # self.frontData     = CameraData(dataRootDir, "front", exportPath)
+        # self.rearData      = CameraData(dataRootDir, "rear" , exportPath)
+        self.sensorData              = {}
+        self.sensorData['velodyne' ] = VelodyneData(dataRootDir, exportPath)
+        self.sensorData['nav_cam'  ] = CameraData(dataRootDir, "nav"  , exportPath)
+        self.sensorData['front_cam'] = CameraData(dataRootDir, "front", exportPath)
+        self.sensorData['rear_cam' ] = CameraData(dataRootDir, "rear" , exportPath)
+        self.sensorData['pano_cam' ] = CameraData(dataRootDir, "pano" , exportPath)
 
         # Global data
         self.minTime       = -1
@@ -32,32 +43,67 @@ class DataCleaner2:
     def load(self):
 
         self.robotPoseData.load()
-        self.velodyneData.load()
-        # self.navData.load()
-        # self.frontData.load()
-        # self.rearData.load()
+
+        keysToRemove = []
+        for sensor in self.sensors:
+            self.sensorData[sensor].load()
+            if not self.sensorData[sensor].filesLoaded:
+                keysToRemove.append(sensor)
+
+        # removing data we were unable to load
+        for key in keysToRemove:
+            del self.sensorData[key]
+        self.sensors = self.sensorData.keys()
 
         self.compute_mission_time()
-
-        self.velodyneData.compute_retagged_poses(self.robotPoseData)
-        self.velodyneData.tag_odometry(self.robotPoseData)
-        self.velodyneData.suggest_broken_data()
-
-        # self.navData.compute_retagged_poses(self.robotPoseData)
-        # self.navData.tag_odometry(self.robotPoseData)
-        # self.navData.suggest_broken_data()
-
-        # self.frontData.compute_retagged_poses(self.robotPoseData)
-        # self.frontData.tag_odometry(self.robotPoseData)
-        # self.frontData.suggest_broken_data()
-
-        # self.rearData.compute_retagged_poses(self.robotPoseData)
-        # self.rearData.tag_odometry(self.robotPoseData)
-        # self.rearData.suggest_broken_data()
+        for sensor in self.sensors:
+            self.sensorData[sensor].compute_retagged_poses(self.robotPoseData)
+            self.sensorData[sensor].tag_odometry(self.robotPoseData)
+            self.sensorData[sensor].suggest_broken_data()
 
     def export(self):
 
-        self.velodyneData.export()
+        brokenData = {}
+        exportPlan = yaml.safe_load(open(self.exportPlanFilename, "r"))
+        if 'data_to_remove' in exportPlan.keys():
+            for sensor in self.sensors:
+                if sensor in exportPlan['data_to_remove'].keys():
+                    brokenData[sensor] = exportPlan['data_to_remove'][sensor]
+
+        for setName in exportPlan['datasets_to_export'].keys():
+            timeInterval = exportPlan['datasets_to_export'][setName]['time_interval']
+            sensors      = exportPlan['datasets_to_export'][setName]['sensors']
+
+            exporters = {}
+            if 'velodyne' in sensors:
+                exporters['velodyne']  = ExportedVelodyneData(self.sensorData['velodyne'],
+                                                              brokenData['velodyne'])
+            if 'nav_cam' in sensors:
+                exporters['nav_cam']   = ExportedCameraData(self.sensorData['nav_cam'],
+                                                            brokenData['nav_cam'])
+            if 'front_cam' in sensors:
+                exporters['front_cam'] = ExportedCameraData(self.sensorData['front_cam'],
+                                                            brokenData['front_cam'])
+            if 'rear_cam' in sensors:
+                exporters['rear_cam']  = ExportedCameraData(self.sensorData['rear_cam'],
+                                                            brokenData['rear_cam'])
+            if 'pano_cam' in sensors:
+                exporters['pano_cam']  = ExportedCameraData(self.sensorData['pano_cam'],
+                                                            brokenData['pano_cam'])
+
+            for sensor in exporters.keys():
+                exporters[sensor].clean_data()
+
+            # finding a common time for mission begin
+            timeInterval = [1000000.0 * timeInterval[0]  + self.minTime,
+                            1000000.0 * timeInterval[-1] + self.minTime]
+            datasetT0 = self.compute_dataset_time(timeInterval[0],
+                                                  [exporters[key] for key in sensors])
+            for sensor in sensors:
+                outputPath = os.path.join(self.exportPath, setName, sensor)
+                exporters[sensor].export(timeInterval, datasetT0, outputPath)
+
+        # self.velodyneData.export()
         # self.navData.export()
         # self.frontData.export()
         # self.rearData.export()
@@ -65,25 +111,23 @@ class DataCleaner2:
     def compute_mission_time(self):
 
         times = []
-        if self.velodyneData.minTime > 0:
-            times.append(self.velodyneData.minTime)
-        if self.navData.minTime > 0:
-            times.append(self.navData.minTime)
-        if self.frontData.minTime > 0:
-            times.append(self.frontData.minTime)
-        if self.rearData.minTime > 0:
-            times.append(self.rearData.minTime)
+        for sensor in self.sensors:
+            if self.sensorData[sensor].minTime > 0:
+                times.append(self.sensorData[sensor].minTime)
         self.minTime = min(times)
 
-        self.velodyneData.minTime = self.minTime
-        self.navData.minTime      = self.minTime
-        self.frontData.minTime    = self.minTime
-        self.rearData.minTime     = self.minTime
+        for sensor in self.sensors:
+            self.sensorData[sensor].minTime = self.minTime
+
+    def compute_dataset_time(self, t0, exporters):
+        
+        times = []
+        for exp in exporters:
+            times.append(np.where(np.array(exp.utcStamp) >= t0)[0][0])
+        return min(times)
 
     def display(self, verbose=False, blocking=False):
 
-        # self.robotPoseData.display(verbose, blocking)
-        self.velodyneData.display(verbose, blocking)
-        # self.navData.display(verbose, blocking)
-        # self.frontData.display(verbose, blocking)
-        # self.rearData.display(verbose, blocking)
+        self.robotPoseData.display(verbose, blocking)
+        for sensor in self.sensors:
+            self.sensorData[sensor].display(verbose, blocking)

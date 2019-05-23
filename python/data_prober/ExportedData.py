@@ -14,67 +14,97 @@ from .DataCleaner import spike_detector
 
 class ExportedData:
 
-    def __init__(self, exportPlanFilename="", exportPath=""):
+    # def __init__(self, exportPlanFilename="", exportPath=""):
 
-        # export plan set in a .yaml file
-        self.exportPath         = exportPath
-        self.exportPlanFilename = exportPlanFilename
-        self.dataPaths          = [] # set by superclass 
-        self.dataExportSubPaths = [] # set by superclass
-        self.intervalsToExport  = {} # keys = export name, items = intervals in time ???
-        self.dataToRemove       = [] # list of data points to remove
+    #     # export plan set in a .yaml file
+    #     self.exportPath         = exportPath
+    #     self.exportPlanFilename = exportPlanFilename
+    #     self.dataPaths          = [] # set by superclass 
+    #     self.dataExportSubPaths = [] # set by superclass
+    #     self.intervalsToExport  = {} # keys = export name, items = intervals in time ???
+    #     self.dataToRemove       = [] # list of data points to remove
 
-        # Some export filenames
-        self.local_frame_file   = "reference_frame.yaml"
-       
-        # filled in data
-        # self.startTime    = []
-        self.utcStamp     = []
-        self.dataIndex    = []
+    #     # Some export filenames
+    #     self.local_frame_file   = "reference_frame.yaml"
+    #    
+    #     # filled in data
+    #     # self.startTime    = []
+    #     self.utcStamp     = []
+    #     self.dataIndex    = []
 
-        self.ltfPose      = []
-        self.ltfPoseTime  = [] # to keep ?
-        self.ltfCurvAbs   = []
-        self.gpsStddev    = [] 
+    #     self.ltfPose      = []
+    #     self.ltfPoseTime  = [] # to keep ?
+    #     self.ltfCurvAbs   = []
+    #     self.gpsStddev    = [] 
 
-        self.odoAbsPose   = []
-        self.odoPoseTime  = [] # to keep ?
-        self.odoCurvAbs   = []
+    #     self.odoAbsPose   = []
+    #     self.odoPoseTime  = [] # to keep ?
+    #     self.odoCurvAbs   = []
 
-        self.sensorPose   = []
-        self.ltfToGtf     = None
+    #     self.sensorPose   = []
+    #     self.ltfToGtf     = None
 
-        self.ltfSpeed     = []
-        self.odoSpeed     = []
+    #     self.ltfSpeed     = []
+    #     self.odoSpeed     = []
 
-        # computed data
-        self.odoDeltaPose = []
-        self.sensorWorld  = []
+    #     # computed data
+    #     self.odoDeltaPose = []
+    #     self.sensorWorld  = []
 
-        # Metadata struct
-        self.metadata     = Metadata()
-        self.minTime      = -1
+    #     # Metadata struct
+    #     self.metadata     = Metadata()
+    #     self.minTime      = -1
 
-    def export(self):
-       
-        # self.parse_export_plan()
-        # self.clean_data()
-        for dataSetName in self.intervalsToExport.keys():
+    def __init__(self, dataRootDir, dataToRemove):
 
-            # all magic starts here
-            interval = self.time_to_index(self.intervalsToExport[dataSetName], self.utcStamp)
-            self.build_metadata_struct(interval)
+        self.dataRootDir      = dataRootDir
+        self.dataToRemove     = dataToRemove
+        self.local_frame_file = "reference_frame.yaml"
+        
+    # def export(self):
+    #    
+    #     # self.parse_export_plan()
+    #     # self.clean_data()
+    #     for dataSetName in self.intervalsToExport.keys():
 
-            outputPath = os.path.join(self.exportPath, dataSetName)
-            create_folder(outputPath)
-            self.metadata.write_metadata_files(outputPath)
-            print("Data copy is commented for debug")
-            # self.copy_data(outputPath, interval)
-            self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
-            self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
+    #         # all magic starts here
+    #         interval = self.time_to_index(self.intervalsToExport[dataSetName], self.utcStamp)
+    #         self.build_metadata_struct(interval)
+
+    #         outputPath = os.path.join(self.exportPath, dataSetName)
+    #         create_folder(outputPath)
+    #         self.metadata.write_metadata_files(outputPath)
+    #         print("Data copy is commented for debug")
+    #         # self.copy_data(outputPath, interval)
+    #         self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
+    #         self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
+
+    def export(self, interval, t0, outputPath):
+
+        self.build_metadata_struct(interval, t0)
+        create_folder(outputPath)
+        self.metadata.write_metadata_files(outputPath)
+        print("Data copy is commented for debug")
+        # self.copy_data(outputPath, interval)
+        self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
+        self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
     def time_to_index(self, timeInterval, stamps):
 
+        # indexInterval = []
+        # if timeInterval[0] == 0:
+        #     indexInterval.append(0)
+        # elif timeInterval[0] > stamps[-1]:
+        #     return []
+        # else:
+        #     indexInterval.append(np.where(np.array(stamps) >= timeInterval[0])[0][0])
+        # if timeInterval[-1] == -1:
+        #     indexInterval.append(len(stamps)-1)
+        # elif timeInterval[-1] < stamps[0]:
+        #     return []
+        # else:
+        #     indexInterval.append(np.where(np.array(stamps) <= timeInterval[-1])[0][-1])
+        # return indexInterval
         indexInterval = []
         if timeInterval[0] == 0:
             indexInterval.append(0)
@@ -129,16 +159,17 @@ class ExportedData:
             self.odoAbsPose.pop(index)
             self.odoPoseTime.pop(index)
             self.odoCurvAbs.pop(index)
+            self.sensorPose.pop(index)
 
             self.ltfSpeed.pop(index)
             self.odoSpeed.pop(index)
 
-            # removing elements is modifing the intervals ot export
-            for inter in self.intervalsToExport.values():
-                if index < inter[0]:
-                    inter[0] = inter[0] - 1
-                if index <= inter[-1]:
-                    inter[-1] = inter[-1] - 1
+            # # removing elements is modifing the intervals ot export
+            # for inter in self.intervalsToExport.values():
+            #     if index < inter[0]:
+            #         inter[0] = inter[0] - 1
+            #     if index <= inter[-1]:
+            #         inter[-1] = inter[-1] - 1
 
         self.compute_delta_odometry()
 
@@ -159,13 +190,14 @@ class ExportedData:
         self.metadata.add_field(name)
         self.metadata[name] = data;
 
-    def build_metadata_struct(self, interval):
+    def build_metadata_struct(self, interval, t0):
 
         if len(interval) == 0:
             raise Exception("Nothing to export : issue with export plan ?")
 
-        t0 = self.utcStamp[interval[0]]
+        # t0 = self.utcStamp[interval[0]]
         # t0 = self.minTime
+        interval = self.time_to_index(interval, self.utcStamp)
         s = slice(interval[0], interval[-1] + 1)
 
         self.metadata = Metadata()
@@ -220,7 +252,7 @@ class ExportedData:
 # self.add_metadata('sensor_to_world_pose_qx',[p.orientation[1] for p in self.sensorWorld[s]])
 # self.add_metadata('sensor_to_world_pose_qy',[p.orientation[2] for p in self.sensorWorld[s]])
 # self.add_metadata('sensor_to_world_pose_qz',[p.orientation[3] for p in self.sensorWorld[s]])
-        print("Sets to export :\n", self.intervalsToExport)
+        # print("Sets to export :\n", self.intervalsToExport)
 
     def copy_data(self, outputPath, interval):
 
