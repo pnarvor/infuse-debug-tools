@@ -33,6 +33,7 @@ PointCloudExtractor::PointCloudExtractor(const std::string &output_dir,
     pcl_viewer_{nullptr},
     point_size_{1},
     compute_min_max_z_{true},
+    local_z_bounds_{false},
     min_z_{0},
     max_z_{0},
     color_mode_{color_mode}
@@ -55,8 +56,32 @@ PointCloudExtractor::PointCloudExtractor(const std::string &output_dir,
     pcl_viewer_{nullptr},
     point_size_{1},
     compute_min_max_z_{false},
+    local_z_bounds_{false},
     min_z_{min_z},
     max_z_{max_z},
+    color_mode_{color_mode}
+{}
+
+PointCloudExtractor::PointCloudExtractor(const std::string &output_dir,
+                                         const std::vector<std::string> &bag_paths,
+                                         const std::string &point_cloud_topic,
+                                         bool extract_pngs,
+                                         bool use_local_z,
+                                         ColorMode color_mode) :
+    output_dir_{output_dir},
+    bag_paths_{bag_paths},
+    point_cloud_topic_{point_cloud_topic},
+    asn1_pointcloud_ptr_{std::make_unique<asn1SccPointcloud>()},
+    length_pcd_filename_{5},
+    pcd_count_{0},
+    pcd_max_{std::stoul(std::string("1") + std::string(length_pcd_filename_, '0')) - 1},
+    extract_pngs_{extract_pngs},
+    pcl_viewer_{nullptr},
+    point_size_{1},
+    compute_min_max_z_{false},
+    local_z_bounds_{true},
+    min_z_{NAN},
+    max_z_{NAN},
     color_mode_{color_mode}
 {}
 
@@ -305,12 +330,29 @@ void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::P
   bfs::path metadata_path = metadata_dir_ / bfs::path(pcd_path).filename().replace_extension(".txt");
   std::ofstream pcd_metadata_ofs(metadata_path.string());
   ASN1BitstreamLogger::LogPointcloud(*asn1_pointcloud_ptr_, pcd_metadata_ofs);
-  pcd_metadata_ofs << min_x << " " << max_x << " " << min_y << " " << max_y << " " << min_z << " " << max_z;
+  pcd_metadata_ofs << min_x << " " << max_x << " " << min_y << " " << max_y << " " << min_z << " " << max_z << " " << pcl_cloud_ptr->size();
   pcd_metadata_ofs.close();
-
 
   // Handle PNG extraction
   if (extract_pngs_) {
+
+    // Compute new bounds to have smooth colors
+    //double lambda = 0.2;
+    double lambda = 1.0;
+    if(local_z_bounds_)
+    {
+        if(std::isnan(min_z_) or std::isnan(max_z_))
+        {
+            min_z_ = min_z;
+            max_z_ = max_z;
+        }
+        else
+        {
+            min_z_ = lambda*min_z + (1.0 - lambda)*min_z_;
+            max_z_ = lambda*max_z + (1.0 - lambda)*max_z_;
+        }
+    }
+
     // Get a version of the point cloud that can be colored
     ColoredPointCloud::Ptr pcl_colored_cloud_ptr(new ColoredPointCloud());
     pcl::copyPointCloud(*pcl_cloud_ptr, *pcl_colored_cloud_ptr);

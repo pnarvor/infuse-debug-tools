@@ -48,6 +48,12 @@ public:
                       double min_z, double max_z,
                       bool extract_pngs = false,
                       ColorMode color_mode = ColorMode::kRainbow);
+  PointCloudExtractor(const std::string &output_dir,
+                      const std::vector<std::string> &bag_paths,
+                      const std::string &point_cloud_topic,
+                      bool extract_pngs = true,
+                      bool use_local_z  = true,
+                      ColorMode color_mode = ColorMode::kRainbow);
   void Extract();
 
 private:
@@ -101,6 +107,8 @@ private:
   boost::filesystem::path png_dir_;
   //! Store if we want to compute min max z
   bool compute_min_max_z_;
+  //! Store if we want to use current pc min max z
+  bool local_z_bounds_;
   //! Store min and max z used to create color lookup table
   double min_z_, max_z_;
   //! Color mode used when dumping png views
