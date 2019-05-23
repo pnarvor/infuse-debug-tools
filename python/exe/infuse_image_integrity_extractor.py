@@ -34,6 +34,8 @@ parser.add_argument("-f", "--frontcam", action='store_true',
                     help="Compute score for frontcam")
 parser.add_argument("-r", "--rearcam", action='store_true',
                     help="Compute score for rearcam")
+parser.add_argument("-p", "--panorama", action='store_true',
+                    help="Compute score for panorama")
 args = parser.parse_args()
 
 pNavLeft = Process(target=compute,
@@ -48,30 +50,48 @@ pRearLeft = Process(target=compute,
                     args=(os.path.join(args.source_directory, "rear_cam/left/"),))
 pRearRight = Process(target=compute,
                      args=(os.path.join(args.source_directory, "rear_cam/right/"),))
+pPanoLeft = Process(target=compute,
+                    args=(os.path.join(args.source_directory, "pano_cam/left/"),))
+pPanoRight = Process(target=compute,
+                     args=(os.path.join(args.source_directory, "pano_cam/right/"),))
 
-if args.navcam or args.all_cams:
-    pNavLeft.start()
-    pNavRight.start()
+try:
+    if args.navcam or args.all_cams:
+        pNavLeft.start()
+        pNavRight.start()
+    
+    if args.frontcam or args.all_cams:
+        pFrontLeft.start()
+        pFrontRight.start()
+    
+    if args.rearcam or args.all_cams:
+        pRearLeft.start()
+        pRearRight.start()
+    
+    if args.panorama or args.all_cams:
+        pPanoLeft.start()
+        pPanoRight.start()
+    
+    if args.navcam or args.all_cams:
+        pNavLeft.join()
+        pNavRight.join()
+    
+    if args.frontcam or args.all_cams:
+        pFrontLeft.join()
+        pFrontRight.join()
+    
+    if args.frontcam or args.all_cams:
+        pFrontLeft.join()
+        pFrontRight.join()
+    
+    if args.panorama or args.all_cams:
+        pPanoLeft.join()
+        pPanoRight.join()
 
-if args.frontcam or args.all_cams:
-    pFrontLeft.start()
-    pFrontRight.start()
+except Exception as e:
+    print(e)
 
-if args.rearcam or args.all_cams:
-    pRearLeft.start()
-    pRearRight.start()
 
-if args.navcam or args.all_cams:
-    pNavLeft.join()
-    pNavRight.join()
-
-if args.frontcam or args.all_cams:
-    pFrontLeft.join()
-    pFrontRight.join()
-
-if args.rearcam or args.all_cams:
-    pRearLeft.join()
-    pRearRight.join()
 
 
 
