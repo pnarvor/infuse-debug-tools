@@ -75,6 +75,7 @@ class VelodyneData:
     def export(self):
 
         exporter = ExportedVelodyneData(os.path.join(self.dataRootDir, "velodyne"), self.exportPath)
+        exporter.minTime     = self.minTime
         exporter.utcStamp    = list(cp.deepcopy(self.cloudTime))
         exporter.dataIndex   = cp.deepcopy(self.scanNumber)
         exporter.ltfPose     = [p.tr        for p in self.robotPoseRetagged]

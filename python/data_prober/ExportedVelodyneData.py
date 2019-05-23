@@ -37,9 +37,13 @@ class ExportedVelodyneData(ExportedData):
 
     def build_metadata_struct(self, interval):
 
+        if len(interval) == 0:
+            raise Exception("Nothing to export : issue with export plan ?")
+
         super().build_metadata_struct(interval)
 
         t0 = self.utcStamp[interval[0]]
+        # t0 = self.minTime
         s = slice(interval[0], interval[-1] + 1)
 
         self.add_metadata('cloud_number_of_points', [int(n) for n in self.nbPoints[s]])

@@ -3,6 +3,7 @@ import numpy as np
 import io
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
+import yaml
 
 from .Utils         import InfuseTransform
 from .Metadata      import Metadata
@@ -14,14 +15,16 @@ class DataCleaner2:
     
     def __init__(self, dataRootDir, exportPath=""):
 
-        self.dataRootDir = dataRootDir
-        self.exportPath  = exportPath
+        self.dataRootDir    = dataRootDir
+        self.exportPath     = exportPath
+        self.exportPlanPath = os.path.join(dataRootDir, "export_plan.yaml")
 
         self.robotPoseData = RobotPoseData(dataRootDir)
         self.velodyneData  = VelodyneData(dataRootDir, exportPath)
         self.navData       = CameraData(dataRootDir, "nav"  , exportPath)
         self.frontData     = CameraData(dataRootDir, "front", exportPath)
         self.rearData      = CameraData(dataRootDir, "rear" , exportPath)
+
 
         # Global data
         self.minTime       = -1

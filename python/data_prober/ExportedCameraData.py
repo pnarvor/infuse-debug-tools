@@ -22,12 +22,16 @@ class ExportedCameraData(ExportedData):
                           os.path.join(dataRootDir, self.cameraName + "_disparity/rect_right")]
         self.dataExtensions = ['.pgm', '.pgm', '.pgm', '.pgm']
         self.dataExportSubPaths = ["raw/left", "raw/right", "rectified/left", "rectified/right"]
+        self.cameraSynchedStamps = [] # common stamps for stereo benches (not exported, internal use only)
 
     def clean_data(self):
 
         super().clean_data()
         print("Clean data " + self.cameraName + "_cam : ", self.dataToRemove)
         self.dataToRemove = []
+
+    def time_to_index(self, timeInterval, stamps):
+        return super().time_to_index(timeInterval, self.cameraSynchedStamps)
 
     def build_metadata_struct(self, interval):
         super().build_metadata_struct(interval)

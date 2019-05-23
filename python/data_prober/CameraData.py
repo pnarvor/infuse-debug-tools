@@ -76,10 +76,11 @@ class CameraData:
         self.ltfToGtf          = None
 
         # Auto detect broken data
-        self.suggestedBroken = []
-        self.desyncThreshold    = 50               # desync in ms
-        self.pairedThreshold    = 15               # th in spike_detector(disparityScoreFiltered)
-        self.maxGpsSigThreshold = [5.0, 5.0, 10.0] # threshold of gps sigma in cm
+        self.suggestedBroken     = []
+        self.desyncThreshold     = 50               # desync in ms
+        self.pairedThreshold     = 15               # th in spike_detector(disparityScoreFiltered)
+        self.maxGpsSigThreshold  = [5.0, 5.0, 10.0] # threshold of gps sigma in cm
+        self.cameraSynchedStamps = []               # common stamps for stereo benches (not exported, internal use only)
 
     def load(self):
 
@@ -112,6 +113,7 @@ class CameraData:
 
         exporter = ExportedCameraData(self.dataRootDir, self.cameraName, self.exportPath)
 
+        exporter.minTime     = self.minTime
         exporter.utcStamp    = list(cp.deepcopy(self.stereoStamps))
         exporter.dataIndex   = cp.deepcopy(self.imageNumber)
         exporter.ltfPose     = [p.tr        for p in self.robotPoseRetagged]
