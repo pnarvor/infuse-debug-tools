@@ -4,21 +4,22 @@ import io
 import matplotlib.pyplot as plt
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
+import copy as cp
 
-# copied from inscripts.core
-from ruamel.yaml import YAML
+import yaml
 
-from .Utils    import InfuseTransform
-from .Utils    import spike_detector
-from .Utils    import add_twiny
-from .Utils    import plot_highlighted
-from .Metadata import Metadata
+from .Utils               import InfuseTransform
+from .Utils               import spike_detector
+from .Utils               import add_twiny
+from .Utils               import plot_highlighted
+from .Metadata            import Metadata
+from .ExportedCameraData import ExportedCameraData
 
 class CameraData:
 
-    def __init__(self, dataRootDir, camera="nav"):
+    def __init__(self, dataRootDir, camera="nav", exportPath=""):
 
-        if not any([camera == name for name in ["nav", "front", "rear"]]):
+        if not any([camera == name for name in ["nav", "front", "rear", "pano"]]):
             raise Exception("Error CameraData, invalid camera name [\"nav\",\"front\",\"rear\"] : " + camera)
         
         # Example of dataRootDir      : "/media/data/log_data_acquisition/raw_data"
@@ -38,6 +39,11 @@ class CameraData:
         self.disparityDataFormatFilename      = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_dataformat.txt")
         self.disparityDataFilename            = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_all_metadata.txt")
         self.calibrationFilename              = os.path.join(self.dataRootDir, "../", self.cameraName + "cam-calibration.yaml")
+        self.exportPlanFilename               = os.path.join(self.dataRootDir, self.cameraName + "_cam/export_plan.yaml")
+        self.exportPath                       = exportPath
+
+        if self.cameraName == "pano":
+            self.calibrationFilename              = os.path.join(self.dataRootDir, "../", "navcam-calibration.yaml")
 
         # raw data file parsing
         self.dataLeft           = Metadata()
@@ -67,6 +73,7 @@ class CameraData:
         self.robotToWorld      = []
         self.robotPoseRetagged = []
         self.odometryRetagged  = []
+        self.ltfToGtf          = None
 
         # Auto detect broken data
         self.suggestedBroken = []
@@ -100,6 +107,28 @@ class CameraData:
 
         self.check_file_consistency() # check if number of images is the same in each files
         self.filesLoaded = True
+
+    def export(self):
+
+        exporter = ExportedCameraData(self.dataRootDir, self.cameraName, self.exportPath)
+
+        exporter.utcStamp    = list(cp.deepcopy(self.stereoStamps))
+        exporter.dataIndex   = cp.deepcopy(self.imageNumber)
+        exporter.ltfPose     = [p.tr        for p in self.robotPoseRetagged]
+        exporter.ltfPoseTime = [p.stamp     for p in self.robotPoseRetagged]
+        exporter.ltfCurvAbs  = [p.curveAbs  for p in self.robotPoseRetagged]
+        exporter.gpsStddev   = [p.gpsStddev for p in self.robotPoseRetagged]
+        exporter.odoAbsPose  = [p.tr        for p in self.odometryRetagged]
+        exporter.odoPoseTime = [p.stamp     for p in self.odometryRetagged]
+        exporter.odoCurvAbs  = [p.curveAbs  for p in self.odometryRetagged]
+        exporter.sensorPose  = cp.deepcopy(self.leftToRobot)
+        exporter.ltfToGtf    = self.ltfToGtf
+        exporter.ltfSpeed    = [p.speed     for p in self.robotPoseRetagged]
+        exporter.odoSpeed    = [p.speed     for p in self.odometryRetagged]
+
+        exporter.parse_export_plan()
+        exporter.clean_data()
+        exporter.export()
 
     def check_file_consistency(self):
 
@@ -226,6 +255,7 @@ class CameraData:
         self.robotPoseRetaggedTr = np.array([[pose.tr.translation[0],
                                               pose.tr.translation[1],
                                               pose.tr.translation[2]] for pose in self.robotPoseRetagged])
+        self.ltfToGtf = robotPoseData.localFrameTr
 
     def tag_odometry(self, robotPoseData):
 
