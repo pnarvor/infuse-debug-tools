@@ -42,6 +42,7 @@ int main(int argc, char **argv)
       ("front,f", bpo::bool_switch(), "Extract front cam images")
       ("nav,n", bpo::bool_switch(), "Extract nav cam images")
       ("rear,r", bpo::bool_switch(), "Extract rear cam images")
+      ("pano,p", bpo::bool_switch(), "Extract panorama images")
       ("odom,o", bpo::bool_switch(), "Extract odometry (RMP) pose data")
       ("tokamak,t", bpo::bool_switch(), "Extract tokamak pose data")
       ("gps,g", bpo::bool_switch(), "Extract GPS pose data")
@@ -66,6 +67,7 @@ int main(int argc, char **argv)
       ("velodyne-png", bpo::bool_switch(), "Extract point cloud views as images (Warning: this launches a PCLViewer window during extraction)")
       ("velodyne-png-min-z", bpo::value<double>(), "Minimum Z value (used to create color lookup table)")
       ("velodyne-png-max-z", bpo::value<double>(), "Maximum Z value (used to create color lookup table)")
+      ("velodyne-png-use-local-z", bpo::bool_switch(), "Use current cloud bounds to create color lookup table")
       ("velodyne-color-mode", bpo::value<ColorMode>()->default_value(ColorMode::kRainbow), color_mode_info.c_str())
       ;
 
@@ -77,6 +79,8 @@ int main(int argc, char **argv)
       ("nav-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Nav cam data")
       ("rear-topic", bpo::value<std::string>()->default_value("/RearCam/Stereo"), "Rear cam stereo pair topic")
       ("rear-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Rear cam data")
+      ("pano-topic", bpo::value<std::string>()->default_value("/NavCam/Stereo/Panorama"), "Panorama stereo pair topic")
+      ("pano-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Panorama data")
       ;
 
     bpo::options_description odom{"Odometry specific options"};
@@ -151,6 +155,7 @@ int main(int argc, char **argv)
         not vm["front"].as<bool>() and
         not vm["nav"].as<bool>() and
         not vm["rear"].as<bool>() and
+        not vm["pano"].as<bool>() and
         not vm["odom"].as<bool>() and
         not vm["odom-delta"].as<bool>() and
         not vm["odom-attitude"].as<bool>() and
@@ -212,6 +217,15 @@ int main(int argc, char **argv)
           vm["velodyne-png"].as<bool>(),
           vm["velodyne-color-mode"].as<ColorMode>()
           );
+      } else if (vm.count("velodyne-png-use-local-z")) {
+        cloud_extractor_ptr = std::make_unique<infuse_debug_tools::PointCloudExtractor>(
+          velodyne_output_dir.string(),
+          vm["bags"].as<std::vector<std::string>>(),
+          vm["velodyne-topic"].as<std::string>(),
+          vm["velodyne-png"].as<bool>(),
+          vm["velodyne-png-use-local-z"].as<bool>(),
+          vm["velodyne-color-mode"].as<ColorMode>()
+          );
       } else {
         cloud_extractor_ptr = std::make_unique<infuse_debug_tools::PointCloudExtractor>(
           velodyne_output_dir.string(),
@@ -225,7 +239,7 @@ int main(int argc, char **argv)
     }
 
     // Process camera data
-    std::array<std::string, 3> cam_names = {"front", "nav", "rear"};
+    std::array<std::string, 4> cam_names = {"front", "nav", "rear", "pano"};
     for (const auto & cam_name : cam_names) {
       if (vm["all"].as<bool>() or vm[cam_name].as<bool>()) {
         // Create the cam extractor and extract images.

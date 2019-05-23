@@ -35,6 +35,7 @@ int main(int argc, char **argv)
       ("front,f", bpo::bool_switch(), "Process matching on front cam images")
       ("nav,n", bpo::bool_switch(), "Process matching on nav cam images")
       ("rear,r", bpo::bool_switch(), "Process matching on rear cam images")
+      ("pano,p", bpo::bool_switch(), "Process matching on panorama images")
       ;
 
     bpo::options_description cam{"Camera specific options"};
@@ -45,6 +46,8 @@ int main(int argc, char **argv)
       ("nav-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Nav cam data")
       ("rear-topic", bpo::value<std::string>()->default_value("/RearCam/Stereo"), "Rear cam stereo pair topic")
       ("rear-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Rear cam data")
+      ("pano-topic", bpo::value<std::string>()->default_value("/NavCam/Stereo/Panorama"), "Panorama stereo pair topic")
+      ("pano-ext", bpo::value<std::string>()->default_value("pgm"), "File extension for the Panorama data")
       ;
 
     bpo::options_description rect{"Stereo rectification specific options"};
@@ -133,6 +136,7 @@ int main(int argc, char **argv)
     // Makes sure we have at least one data option informed
     if (not vm["all"].as<bool>() and
         not vm["front"].as<bool>() and
+        not vm["pano"].as<bool>() and
         not vm["nav"].as<bool>() and
         not vm["rear"].as<bool>()) {
      std::cout << "Error: Data option not informed. Please use at least one data option." << '\n';
@@ -271,6 +275,24 @@ int main(int argc, char **argv)
         vm["bags"].as<std::vector<std::string>>(),
         vm["rear-topic"].as<std::string>(),
         vm["rear-ext"].as<std::string>(),
+        matching_parameters,
+        rect_parameters
+      };
+      cam_matcher.Match();
+    }
+    if (vm["all"].as<bool>() or vm["pano"].as<bool>()) {
+      // Create the cam matcher and process stereo matching.
+      infuse_debug_tools::ImagePairMatcher::StereoRectificationParams rect_parameters;
+      rect_parameters.xratio = vm["xratio"].as<std::int16_t>();
+      rect_parameters.yratio = vm["yratio"].as<std::int16_t>();
+      rect_parameters.scaling = vm["scaling"].as<std::double_t>();
+      rect_parameters.calibration_file_path = vm["nav_calibration_file_path"].as<std::string>();
+      bfs::path disparity_output_dir = output_dir / ("pano_disparity");
+      infuse_debug_tools::ImagePairMatcher cam_matcher{
+        disparity_output_dir.string(),
+        vm["bags"].as<std::vector<std::string>>(),
+        vm["pano-topic"].as<std::string>(),
+        vm["pano-ext"].as<std::string>(),
         matching_parameters,
         rect_parameters
       };
