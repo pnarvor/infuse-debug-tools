@@ -25,8 +25,8 @@ class ExportedCameraData(ExportedData):
     #     self.dataExportSubPaths = ["raw/left", "raw/right", "rectified/left", "rectified/right"]
     #     self.cameraSynchedStamps = [] # common stamps for stereo benches (not exported, internal use only)
 
-    def __init__(self, cameraData, dataToRemove, exportPath):
-        super().__init__(cameraData.dataRootDir, dataToRemove, exportPath)
+    def __init__(self, cameraData, dataToRemove):
+        super().__init__(cameraData.dataRootDir, dataToRemove)
 
         self.cameraName = cameraData.cameraName
 
@@ -40,8 +40,8 @@ class ExportedCameraData(ExportedData):
         self.cameraSynchedStamps = [] # common stamps for stereo benches (not exported, internal use only)
 
         self.minTime     = cameraData.minTime
-        self.utcStamp    = list(cp.deepcopy(cameraData.cloudTime))
-        self.dataIndex   = cp.deepcopy(cameraData.scanNumber)
+        self.utcStamp    = list(cp.deepcopy(cameraData.stereoStamps))
+        self.dataIndex   = cp.deepcopy(cameraData.imageNumber)
         self.ltfPose     = [p.tr        for p in cameraData.robotPoseRetagged]
         self.ltfPoseTime = [p.stamp     for p in cameraData.robotPoseRetagged]
         self.ltfCurvAbs  = [p.curveAbs  for p in cameraData.robotPoseRetagged]
@@ -49,7 +49,7 @@ class ExportedCameraData(ExportedData):
         self.odoAbsPose  = [p.tr        for p in cameraData.odometryRetagged]
         self.odoPoseTime = [p.stamp     for p in cameraData.odometryRetagged]
         self.odoCurvAbs  = [p.curveAbs  for p in cameraData.odometryRetagged]
-        self.sensorPose  = cp.deepcopy(cameraData.sensorToRobot)
+        self.sensorPose  = cp.deepcopy(cameraData.leftToRobot)
         self.ltfToGtf    = cameraData.ltfToGtf
         self.ltfSpeed    = [p.speed     for p in cameraData.robotPoseRetagged]
         self.odoSpeed    = [p.speed     for p in cameraData.odometryRetagged]
@@ -62,7 +62,10 @@ class ExportedCameraData(ExportedData):
         self.dataToRemove = []
 
     def time_to_index(self, timeInterval, stamps):
-        return super().time_to_index(timeInterval, self.cameraSynchedStamps)
+        if len(self.cameraSynchedStamps) == 0:
+            return super().time_to_index(timeInterval, stamps)
+        else:
+            return super().time_to_index(timeInterval, self.cameraSynchedStamps)
 
     def build_metadata_struct(self, interval, t0):
         super().build_metadata_struct(interval, t0)

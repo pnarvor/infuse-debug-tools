@@ -81,11 +81,12 @@ class ExportedData:
 
     def export(self, interval, t0, outputPath):
 
+        interval = self.time_to_index(interval, self.utcStamp)
         self.build_metadata_struct(interval, t0)
         create_folder(outputPath)
         self.metadata.write_metadata_files(outputPath)
-        print("Data copy is commented for debug")
-        # self.copy_data(outputPath, interval)
+        # print("Data copy is commented for debug")
+        self.copy_data(outputPath, interval)
         self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
         self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
@@ -197,7 +198,7 @@ class ExportedData:
 
         # t0 = self.utcStamp[interval[0]]
         # t0 = self.minTime
-        interval = self.time_to_index(interval, self.utcStamp)
+        # interval = self.time_to_index(interval, self.utcStamp)
         s = slice(interval[0], interval[-1] + 1)
 
         self.metadata = Metadata()

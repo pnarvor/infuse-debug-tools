@@ -75,22 +75,28 @@ class DataCleaner2:
             sensors      = exportPlan['datasets_to_export'][setName]['sensors']
 
             exporters = {}
-            if 'velodyne' in sensors:
+            sensorToExport = []
+            if 'velodyne' in sensors and 'velodyne' in self.sensors:
+                sensorToExport.append('velodyne')
                 exporters['velodyne']  = ExportedVelodyneData(self.sensorData['velodyne'],
                                                               brokenData['velodyne'])
-            if 'nav_cam' in sensors:
+            if 'nav_cam' in sensors and 'nav_cam' in self.sensors:
+                sensorToExport.append('nav_cam')
                 exporters['nav_cam']   = ExportedCameraData(self.sensorData['nav_cam'],
                                                             brokenData['nav_cam'])
-            if 'front_cam' in sensors:
+            if 'front_cam' in sensors and 'front_cam' in self.sensors:
+                sensorToExport.append('front_cam')
                 exporters['front_cam'] = ExportedCameraData(self.sensorData['front_cam'],
                                                             brokenData['front_cam'])
-            if 'rear_cam' in sensors:
+            if 'rear_cam' in sensors and 'rear_cam' in self.sensors:
+                sensorToExport.append('rear_cam')
                 exporters['rear_cam']  = ExportedCameraData(self.sensorData['rear_cam'],
                                                             brokenData['rear_cam'])
-            if 'pano_cam' in sensors:
+            if 'pano_cam' in sensors and 'pano_cam' in self.sensors:
+                sensorToExport.append('pano_cam')
                 exporters['pano_cam']  = ExportedCameraData(self.sensorData['pano_cam'],
                                                             brokenData['pano_cam'])
-
+            sensors = sensorToExport
             for sensor in exporters.keys():
                 exporters[sensor].clean_data()
 
@@ -99,6 +105,7 @@ class DataCleaner2:
                             1000000.0 * timeInterval[-1] + self.minTime]
             datasetT0 = self.compute_dataset_time(timeInterval[0],
                                                   [exporters[key] for key in sensors])
+            print(datasetT0)
             for sensor in sensors:
                 outputPath = os.path.join(self.exportPath, setName, sensor)
                 exporters[sensor].export(timeInterval, datasetT0, outputPath)
@@ -123,7 +130,7 @@ class DataCleaner2:
         
         times = []
         for exp in exporters:
-            times.append(np.where(np.array(exp.utcStamp) >= t0)[0][0])
+            times.append(exp.utcStamp[np.where(np.array(exp.utcStamp) >= t0)[0][0]])
         return min(times)
 
     def display(self, verbose=False, blocking=False):

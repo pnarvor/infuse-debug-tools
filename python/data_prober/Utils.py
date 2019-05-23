@@ -31,7 +31,7 @@ def create_folder(path):
     if os.path.exists(path):
         raise Exception("Failed to create folder : \"" + path
                         + "\" already exists !")
-    os.mkdir(path)
+    os.makedirs(path)
 
 def spike_detector(data):
    return np.abs(data - medfilt(data, kernel_size=3)) 

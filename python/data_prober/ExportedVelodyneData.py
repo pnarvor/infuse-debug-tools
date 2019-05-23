@@ -26,8 +26,8 @@ class ExportedVelodyneData(ExportedData):
     def __init__(self, velodyneData, dataToRemove):
         super().__init__(velodyneData.dataRootDir, dataToRemove)
 
-        self.dataPaths = [os.path.join(self.dataRootDir, "data"),
-                          os.path.join(self.dataRootDir, "pngs")]
+        self.dataPaths = [os.path.join(self.dataRootDir, "velodyne/data"),
+                          os.path.join(self.dataRootDir, "velodyne/pngs")]
         self.dataExtensions = ['.pcd', '.png']
         self.dataExportSubPaths = ["data", "pngs"]
         
@@ -76,7 +76,7 @@ class ExportedVelodyneData(ExportedData):
 
         # t0 = self.utcStamp[interval[0]]
         # t0 = self.minTime
-        interval = self.time_to_index(interval, self.utcStamp)
+        # interval = self.time_to_index(interval, self.utcStamp)
         s = slice(interval[0], interval[-1] + 1)
 
         self.add_metadata('cloud_number_of_points', [int(n) for n in self.nbPoints[s]])
