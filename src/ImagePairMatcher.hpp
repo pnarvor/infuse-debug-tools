@@ -246,7 +246,7 @@ public:
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/transforms.h>
-  ImagePairMatcher(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &image_topic, const std::string & img_extension, infuse_debug_tools::ImagePairMatcher::StereoMatchingParams & matching_parameters, infuse_debug_tools::ImagePairMatcher::StereoRectificationParams & rect_parameters);
+  ImagePairMatcher(const std::string &output_dir, const std::vector<std::string> &bag_paths, const std::string &image_topic, const std::string & img_extension, infuse_debug_tools::ImagePairMatcher::StereoMatchingParams & matching_parameters, infuse_debug_tools::ImagePairMatcher::StereoRectificationParams & rect_parameters, bool extractPointClouds = false);
   void Match();
 
 private:
