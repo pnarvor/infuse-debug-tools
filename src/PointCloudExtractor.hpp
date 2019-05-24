@@ -67,6 +67,7 @@ private:
 
   void ColorPointCloud(ColoredPointCloud & colored_cloud);
   Eigen::Affine3f ComputeSensorPoseInFixedFrame(const asn1SccPointcloud & asn1_cloud);
+  Eigen::Affine3f ComputeRobotPoseInFixedFrame(const asn1SccPointcloud & asn1_cloud);
 
   template<typename PointT>
   void SetCloudSensorPose(const Eigen::Affine3f & pose, pcl::PointCloud<PointT> &pcl_cloud)

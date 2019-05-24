@@ -268,6 +268,12 @@ Eigen::Affine3f PointCloudExtractor::ComputeSensorPoseInFixedFrame(const asn1Scc
   return (T_fixed_robot * T_robot_sensor).cast<float>();
 }
 
+Eigen::Affine3f PointCloudExtractor::ComputeRobotPoseInFixedFrame(const asn1SccPointcloud & asn1_cloud)
+{
+  Eigen::Affine3d T_fixed_robot = ConvertAsn1PoseToEigen(asn1_cloud.metadata.pose_fixedFrame_robotFrame);
+  return T_fixed_robot.cast<float>();
+}
+
 void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::Ptr& msg)
 {
   // Guard against overflow on the filename numbers
@@ -283,6 +289,7 @@ void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::P
 
   // Extract sensor frame in fixed frame from metadata
   Eigen::Affine3f T_fixed_sensor = ComputeSensorPoseInFixedFrame(*asn1_pointcloud_ptr_);
+  Eigen::Affine3f T_fixed_robot  = ComputeRobotPoseInFixedFrame(*asn1_pointcloud_ptr_);
   // Fill sensor pose information. This info ends up in the VIEWPOINT field of
   // the pcd file, and it's used to position the cloud on pcl_viewer with it
   // is used with multiple input pcds. Note that it is stored using float
@@ -337,8 +344,8 @@ void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::P
   if (extract_pngs_) {
 
     // Compute new bounds to have smooth colors
-    //double lambda = 0.2;
-    double lambda = 1.0;
+    double lambda = 0.2;
+    //double lambda = 1.0;
     if(local_z_bounds_)
     {
         if(std::isnan(min_z_) or std::isnan(max_z_))
@@ -360,12 +367,14 @@ void PointCloudExtractor::ProcessPointCloud(const infuse_msgs::asn1_bitstream::P
     // Compute useful transformations
     // Sensor frame that considers only yaw
     Eigen::Affine3f T_fixed_sensoryaw;
-    T_fixed_sensoryaw = Eigen::AngleAxis<float>(ASN1BitstreamLogger::Yaw(Eigen::Quaternionf(T_fixed_sensor.rotation())), Eigen::Vector3f::UnitZ());
-    T_fixed_sensoryaw.translation() = T_fixed_sensor.translation();
+    //T_fixed_sensoryaw = Eigen::AngleAxis<float>(ASN1BitstreamLogger::Yaw(Eigen::Quaternionf(T_fixed_sensor.rotation())), Eigen::Vector3f::UnitZ());
+    //T_fixed_sensoryaw.translation() = T_fixed_sensor.translation();
+    T_fixed_sensoryaw = Eigen::AngleAxis<float>(3.14159 + ASN1BitstreamLogger::Yaw(Eigen::Quaternionf(T_fixed_robot.rotation())), Eigen::Vector3f::UnitZ());
+    T_fixed_sensoryaw.translation() = T_fixed_robot.translation();
     // Camera pose, behind the robot and considering only sensor yaw
     // (makes camera less shaky). Note that since the velodyne is mounted
     // facing backwards, we preform a positive translation on sensor's X axis
-    Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(45,0,20);
+    Eigen::Affine3f T_fixed_camera = T_fixed_sensoryaw * Eigen::Translation<float,3>(45,1,20);
 
     // Add a new at current sensor pose. This creates a trail of frames
     pcl_viewer_->addCoordinateSystem (1.0, T_fixed_sensor, "sensor_frame");
