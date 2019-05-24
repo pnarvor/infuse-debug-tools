@@ -12,17 +12,6 @@ from .ExportedData import ExportedData
 
 class ExportedVelodyneData(ExportedData):
 
-    # def __init__(self, dataRootDir, exportPath=""):
-    #     super().__init__(os.path.join(dataRootDir, "export_plan.yaml"), exportPath)
-
-    #     self.nbPoints = []
-    #     self.bounds   = []
-
-    #     self.dataPaths = [os.path.join(dataRootDir, "data"),
-    #                       os.path.join(dataRootDir, "pngs")]
-    #     self.dataExtensions = ['.pcd', '.png']
-    #     self.dataExportSubPaths = ["data", "pngs"]
-
     def __init__(self, velodyneData, dataToRemove):
         super().__init__(velodyneData.dataRootDir, dataToRemove)
 
@@ -54,14 +43,17 @@ class ExportedVelodyneData(ExportedData):
                                                     velodyneData.dataVelodyne.min_z,
                                                     velodyneData.dataVelodyne.max_z)]
 
+    def export(self, interval, t0, outputPath):
+        print("Exporting velodyne data")
+        super().export(interval, t0, outputPath)
+
     def clean_data(self):
 
         super().clean_data()
 
-        print("Clean data velodyne : ", self.dataToRemove)
+        print("Cleanning velodyne data")
 
         for index in reversed(self.dataToRemove):
-            print("Popping nbPoint : ", self.nbPoints[index])
             self.nbPoints.pop(index)
             self.bounds.pop(index)
 

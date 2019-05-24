@@ -1,11 +1,14 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import io
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 import yaml
 
+from .Utils         import add_twiny
 from .Utils         import InfuseTransform
+from .Utils         import extrinsic_synchro
 from .Metadata      import Metadata
 from .RobotPoseData import RobotPoseData
 from .VelodyneData  import VelodyneData
@@ -100,20 +103,17 @@ class DataCleaner2:
             for sensor in exporters.keys():
                 exporters[sensor].clean_data()
 
+            self.synchronize_cameras(exporters, tol=75)
+
             # finding a common time for mission begin
             timeInterval = [1000000.0 * timeInterval[0]  + self.minTime,
                             1000000.0 * timeInterval[-1] + self.minTime]
             datasetT0 = self.compute_dataset_time(timeInterval[0],
                                                   [exporters[key] for key in sensors])
-            print(datasetT0)
             for sensor in sensors:
                 outputPath = os.path.join(self.exportPath, setName, sensor)
                 exporters[sensor].export(timeInterval, datasetT0, outputPath)
 
-        # self.velodyneData.export()
-        # self.navData.export()
-        # self.frontData.export()
-        # self.rearData.export()
 
     def compute_mission_time(self):
 
@@ -133,8 +133,59 @@ class DataCleaner2:
             times.append(exp.utcStamp[np.where(np.array(exp.utcStamp) >= t0)[0][0]])
         return min(times)
 
+    def synchronize_cameras(self, exporters, tol=75):
+
+        camExporters = {}
+        stampsToSync = []
+        for sensor in exporters.keys():
+            if not 'cam' in sensor or 'pano' in sensor:
+                continue
+            stampsToSync.append(exporters[sensor].utcStamp)
+            camExporters[sensor] = exporters[sensor]
+        if len(stampsToSync) <= 1:
+            return
+        
+        toDelete = extrinsic_synchro(stampsToSync, tolerance=tol)
+        # print("Indexes to delete :\n")
+        for key, toDel in zip(camExporters.keys(), toDelete):
+            # print(" -- " + camExporters[key].cameraName + ", ", len(camExporters[key].utcStamp)," :\n", toDel)
+            camExporters[key].dataToRemove = toDel
+            camExporters[key].clean_data()
+
     def display(self, verbose=False, blocking=False):
 
         self.robotPoseData.display(verbose, blocking)
         for sensor in self.sensors:
             self.sensorData[sensor].display(verbose, blocking)
+
+    def check_velodyne_exported(self, path):
+        
+        formatFilename = os.path.join(path, 'dataformat.txt')
+        dataFilename   = os.path.join(path, 'all_metadata.txt')
+        data = Metadata()
+        data.parse_metadata(formatFilename, dataFilename)
+
+        time_span = [data.data_time_stamp[0], data.data_time_stamp[1]]
+        fig, axes = plt.subplots(3,1, sharex=True, sharey=False)
+        axes[0].plot((np.array(data.data_time_stamp) - np.array(data.robot_to_world_pose_time)) / 1000.0, label="Desync cloud / pose")
+        axes[0].legend(loc="upper right")
+        axes[0].set_xlabel("Scan number")
+        axes[0].set_ylabel("Desync (ms)")
+        axes[0].grid()
+        add_twiny(axes[0], time_span, label="Mission time (s)")
+        axes[1].plot(data.cloud_number_of_points, label="Number of points / clouds")
+        axes[1].legend(loc="lower right")
+        axes[1].set_xlabel("Scan number")
+        axes[1].set_ylabel("Number of points")
+        axes[1].grid()
+        add_twiny(axes[1], time_span, label="Mission time (s)")
+        axes[2].plot(data.robot_to_world_pose_sig_x, label="Easting  sigma")
+        axes[2].plot(data.robot_to_world_pose_sig_y, label="Northing sigma")
+        axes[2].plot(data.robot_to_world_pose_sig_z, label="Height   sigma")
+        axes[2].legend(loc="upper right")
+        axes[2].set_xlabel("Scan number")
+        axes[2].set_ylabel("GPS sigma (cm)")
+        axes[2].grid()
+        add_twiny(axes[2], time_span, label="Mission time (s)")
+
+        plt.show(block=False)

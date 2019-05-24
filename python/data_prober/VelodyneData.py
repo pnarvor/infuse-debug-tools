@@ -179,7 +179,9 @@ class VelodyneData:
         self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
         self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
         self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
-
+        
+        # sorting and removing dupplicates
+        self.suggestedBroken = list(dict.fromkeys(self.suggestedBroken))
         self.suggestedBroken.sort()
         print("Velodyne suggested scans to remove :\n", self.suggestedBroken)
 

@@ -9,75 +9,18 @@ from shutil import copyfile
 
 from .Utils       import InfuseTransform
 from .Utils       import create_folder
+from .Utils       import EulerAngles
 from .Metadata    import Metadata
 from .DataCleaner import spike_detector
 
 class ExportedData:
 
-    # def __init__(self, exportPlanFilename="", exportPath=""):
-
-    #     # export plan set in a .yaml file
-    #     self.exportPath         = exportPath
-    #     self.exportPlanFilename = exportPlanFilename
-    #     self.dataPaths          = [] # set by superclass 
-    #     self.dataExportSubPaths = [] # set by superclass
-    #     self.intervalsToExport  = {} # keys = export name, items = intervals in time ???
-    #     self.dataToRemove       = [] # list of data points to remove
-
-    #     # Some export filenames
-    #     self.local_frame_file   = "reference_frame.yaml"
-    #    
-    #     # filled in data
-    #     # self.startTime    = []
-    #     self.utcStamp     = []
-    #     self.dataIndex    = []
-
-    #     self.ltfPose      = []
-    #     self.ltfPoseTime  = [] # to keep ?
-    #     self.ltfCurvAbs   = []
-    #     self.gpsStddev    = [] 
-
-    #     self.odoAbsPose   = []
-    #     self.odoPoseTime  = [] # to keep ?
-    #     self.odoCurvAbs   = []
-
-    #     self.sensorPose   = []
-    #     self.ltfToGtf     = None
-
-    #     self.ltfSpeed     = []
-    #     self.odoSpeed     = []
-
-    #     # computed data
-    #     self.odoDeltaPose = []
-    #     self.sensorWorld  = []
-
-    #     # Metadata struct
-    #     self.metadata     = Metadata()
-    #     self.minTime      = -1
 
     def __init__(self, dataRootDir, dataToRemove):
 
         self.dataRootDir      = dataRootDir
         self.dataToRemove     = dataToRemove
         self.local_frame_file = "reference_frame.yaml"
-        
-    # def export(self):
-    #    
-    #     # self.parse_export_plan()
-    #     # self.clean_data()
-    #     for dataSetName in self.intervalsToExport.keys():
-
-    #         # all magic starts here
-    #         interval = self.time_to_index(self.intervalsToExport[dataSetName], self.utcStamp)
-    #         self.build_metadata_struct(interval)
-
-    #         outputPath = os.path.join(self.exportPath, dataSetName)
-    #         create_folder(outputPath)
-    #         self.metadata.write_metadata_files(outputPath)
-    #         print("Data copy is commented for debug")
-    #         # self.copy_data(outputPath, interval)
-    #         self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
-    #         self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
     def export(self, interval, t0, outputPath):
 
@@ -85,27 +28,13 @@ class ExportedData:
         self.build_metadata_struct(interval, t0)
         create_folder(outputPath)
         self.metadata.write_metadata_files(outputPath)
-        # print("Data copy is commented for debug")
+
+        self.write_common_files(outputPath)
+        print("Data copy is commented for debug")
         self.copy_data(outputPath, interval)
-        self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
-        self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
     def time_to_index(self, timeInterval, stamps):
 
-        # indexInterval = []
-        # if timeInterval[0] == 0:
-        #     indexInterval.append(0)
-        # elif timeInterval[0] > stamps[-1]:
-        #     return []
-        # else:
-        #     indexInterval.append(np.where(np.array(stamps) >= timeInterval[0])[0][0])
-        # if timeInterval[-1] == -1:
-        #     indexInterval.append(len(stamps)-1)
-        # elif timeInterval[-1] < stamps[0]:
-        #     return []
-        # else:
-        #     indexInterval.append(np.where(np.array(stamps) <= timeInterval[-1])[0][-1])
-        # return indexInterval
         indexInterval = []
         if timeInterval[0] == 0:
             indexInterval.append(0)
@@ -145,7 +74,7 @@ class ExportedData:
         
     def clean_data(self):
 
-        print("Clean data poses : ", self.dataToRemove)
+        # print("Clean data poses : ", self.dataToRemove)
         self.dataIndex = [i for i in range(len(self.utcStamp))]
 
         for index in reversed(self.dataToRemove):
@@ -164,13 +93,6 @@ class ExportedData:
 
             self.ltfSpeed.pop(index)
             self.odoSpeed.pop(index)
-
-            # # removing elements is modifing the intervals ot export
-            # for inter in self.intervalsToExport.values():
-            #     if index < inter[0]:
-            #         inter[0] = inter[0] - 1
-            #     if index <= inter[-1]:
-            #         inter[-1] = inter[-1] - 1
 
         self.compute_delta_odometry()
 
@@ -277,6 +199,11 @@ class ExportedData:
                          os.path.join(expPath, outputStr + ext))
                 # print("Copying", os.path.join(dataPath, inputStr + ext), "to",
                 #                  os.path.join(expPath, outputStr + ext))
+    
+    def write_common_files(self, outputPath):
+
+        self.write_local_frame_file(os.path.join(outputPath, "reference_frame.yaml"))
+        self.write_odo_frame_file(os.path.join(outputPath, "start_position.yaml"))
 
     def write_local_frame_file(self, path):
         f = open(path, 'w')
@@ -299,3 +226,8 @@ class ExportedData:
                                  +  str(self.ltfPose[0].orientation[1]) + ", "
                                  +  str(self.ltfPose[0].orientation[2]) + ", "
                                  +  str(self.ltfPose[0].orientation[3]) + "]\n"))
+        euler = EulerAngles.from_quaternion(self.ltfPose[0].orientation)
+        f.write("orientation (euler rpy): [" + (str(euler.roll ) + ", "
+                                             +  str(euler.pitch) + ", "
+                                             +  str(euler.yaw  ) + "]\n"))
+

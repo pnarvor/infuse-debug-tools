@@ -39,6 +39,7 @@ class CameraData:
         self.disparityDataFormatFilename      = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_dataformat.txt")
         self.disparityDataFilename            = os.path.join(self.dataRootDir, self.cameraName + "_disparity/disparity_all_metadata.txt")
         self.calibrationFilename              = os.path.join(self.dataRootDir, "../", self.cameraName + "cam-calibration.yaml")
+        self.rectMatricesFilename             = os.path.join(self.dataRootDir, self.cameraName + "_disparity/rectified_matrices.txt")
         self.exportPlanFilename               = os.path.join(self.dataRootDir, self.cameraName + "_cam/export_plan.yaml")
         self.exportPath                       = exportPath
 
@@ -287,6 +288,8 @@ class CameraData:
         self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
         self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
 
+        # sorting and removing dupplicates
+        self.suggestedBroken = list(dict.fromkeys(self.suggestedBroken))
         self.suggestedBroken.sort()
         print(self.cameraName + "_cam suggested images to remove :\n", self.suggestedBroken)
 
