@@ -240,9 +240,17 @@ int main(int argc, char **argv)
         vm["nav-topic"].as<std::string>(),
         vm["nav-ext"].as<std::string>(),
         matching_parameters,
-        rect_parameters
+        rect_parameters,
+        true
       };
-      cam_matcher.Match();
+      try
+      {
+        cam_matcher.Match();
+      }
+      catch(...)
+      {
+        cout << "Aborting nav_cam extraction." << endl;
+      }
     }
     if (vm["all"].as<bool>() or vm["front"].as<bool>()) {
       // Create the cam matcher and process stereo matching.
@@ -258,9 +266,17 @@ int main(int argc, char **argv)
         vm["front-topic"].as<std::string>(),
         vm["front-ext"].as<std::string>(),
         matching_parameters,
-        rect_parameters
+        rect_parameters,
+        false
       };
-      cam_matcher.Match();
+      try
+      {
+        cam_matcher.Match();
+      }
+      catch(...)
+      {
+        cout << "Aborting front_cam extraction." << endl;
+      }
     }
     if (vm["all"].as<bool>() or vm["rear"].as<bool>()) {
       // Create the cam matcher and process stereo matching.
@@ -276,9 +292,17 @@ int main(int argc, char **argv)
         vm["rear-topic"].as<std::string>(),
         vm["rear-ext"].as<std::string>(),
         matching_parameters,
-        rect_parameters
+        rect_parameters,
+        false
       };
-      cam_matcher.Match();
+      try
+      {
+        cam_matcher.Match();
+      }
+      catch(...)
+      {
+        cout << "Aborting rear_cam extraction." << endl;
+      }
     }
     if (vm["all"].as<bool>() or vm["pano"].as<bool>()) {
       // Create the cam matcher and process stereo matching.
@@ -294,9 +318,17 @@ int main(int argc, char **argv)
         vm["pano-topic"].as<std::string>(),
         vm["pano-ext"].as<std::string>(),
         matching_parameters,
-        rect_parameters
+        rect_parameters,
+        false
       };
-      cam_matcher.Match();
+      try
+      {
+        cam_matcher.Match();
+      }
+      catch(...)
+      {
+        cout << "Aborting pano_cam extraction." << endl;
+      }
     }
 
   } catch (const bpo::error &ex) {
