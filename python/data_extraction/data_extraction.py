@@ -58,21 +58,29 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
     print("Done")
 
     try:
-
+        try:
+            os.makedirs(os.path.join("output", os.path.split(source_dir)[1]))
+        except Exception as e:
+            print(e)
+            pass
         print("Executing infuse_data_extractor...")
         command = sh.Command("infuse_data_extractor")
         command = command.bake(_bg=True, _bg_exc=False,
-                                _out="infuse_data_extractor_stdout.txt",
-                                _err="infuse_data_extractor_stderr.txt")
+                                _out=os.path.join("output", os.path.split(source_dir)[1], "infuse_data_extractor_stdout.txt"),
+                                _err=os.path.join("output", os.path.split(source_dir)[1], "infuse_data_extractor_stderr.txt"))
         # process = command("-v", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
-        process = command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        # process = command("-a", "--velodyne-png", os.path.join(output_dir, rawdata_subdir), bags)
+        process = command("-a", "--velodyne-png", "--velodyne-png-use-local-z",
+                          os.path.join(output_dir, rawdata_subdir), bags)
+        # process = command("-p",
+        #                   os.path.join(output_dir, rawdata_subdir), bags)
         process.wait()
         print("Done")
 
         print("Computing integrity of images")
         command = sh.Command(os.path.join(os.path.realpath(__file__), "../../exe/infuse_image_integrity_extractor.py"))
-        command = command.bake(_out="infuse_image_integrity_extractor_stdout.txt",
-                               _err="infuse_image_integrity_extractor_stderr.txt")
+        command = command.bake(_out=os.path.join("output", os.path.split(source_dir)[1], "infuse_image_integrity_extractor_stdout.txt"),
+                               _err=os.path.join("output", os.path.split(source_dir)[1], "infuse_image_integrity_extractor_stderr.txt"))
         process = command("-a", os.path.join(output_dir, rawdata_subdir))
         process.wait()
         print("Done")
@@ -80,20 +88,14 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
         print("Executing infuse_stereo_matching...")
         command = sh.Command("infuse_stereo_matching")
         command = command.bake(_bg=True, _bg_exc=False,
-                               _out="infuse_stereo_matching_stdout.txt",
-                               _err="infuse_stereo_matching_stderr.txt")
-        # process = command("-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
-        #                   "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
-        #                   "-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
-        #                   os.path.join(output_dir, rawdata_subdir), bags)
-        # process = command(
-        #                   "-n", "--disp12_max_diff=-1",
-        #                   "--uniqueness_ratio=15",
-        #                   "--block_size=1",
-        #                   "--nav_calibration_file_path",  os.path.join(source_dir, "navcam-calibration.yaml"),
-        #                   os.path.join(output_dir, rawdata_subdir), bags)
-        process = command("-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
+                               _out=os.path.join("output", os.path.split(source_dir)[1], "infuse_stereo_matching_stdout.txt"),
+                               _err=os.path.join("output", os.path.split(source_dir)[1], "infuse_stereo_matching_stderr.txt"))
+        process = command("-p", "-f", "--front_calibration_file_path", os.path.join(source_dir, "frontcam-calibration.yaml"),
+                                "-r", "--rear_calibration_file_path",  os.path.join(source_dir, "rearcam-calibration.yaml"),
+                                "-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
                           os.path.join(output_dir, rawdata_subdir), bags)
+        # process = command("-p", "-n", "--nav_calibration_file_path",   os.path.join(source_dir, "navcam-calibration.yaml"),
+        #                   os.path.join(output_dir, rawdata_subdir), bags)
         process.wait()
         print("Done")
 
