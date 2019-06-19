@@ -283,10 +283,10 @@ class CameraData:
         nbPoints = spike_detector(self.disparityScoreFiltered)
         self.suggestedBroken.extend(np.where(nbPoints > self.pairedThreshold)[0].tolist())
 
-        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
-        self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
-        self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
-        self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
+        # gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
 
         # sorting and removing dupplicates
         self.suggestedBroken = list(dict.fromkeys(self.suggestedBroken))

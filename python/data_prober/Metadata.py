@@ -77,6 +77,13 @@ class Metadata:
         self.metadataFormat.dataFields.append(name)
         setattr(self, name, []);
 
+    def remove_data_lines(self, toRemove):
+
+        toRemove.sort()
+        for index in reversed(toRemove):
+            for key in self.metadataFormat.dataFields:
+                self.get(key).pop(index)
+
     def write_metadata_files(self, path):
         
         dataFormatFilename  = os.path.join(path, "dataformat.txt")

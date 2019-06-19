@@ -46,6 +46,8 @@ def do_extract(source_dir, output_dir, rawdata_subdir="raw_data", suffix=""):
     bags = [os.path.join(source_dir, f) for f in files[1]]
     bags.sort()
 
+    print(bags)
+
     print("Creating output directory...", end=" ")
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)

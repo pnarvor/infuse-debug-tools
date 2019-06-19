@@ -5,6 +5,7 @@ import io
 from pyquaternion import Quaternion
 from scipy.signal import medfilt
 import yaml
+from shutil import copyfile
 
 from .Utils         import add_twiny
 from .Utils         import InfuseTransform
@@ -110,6 +111,13 @@ class DataCleaner2:
                             1000000.0 * timeInterval[-1] + self.minTime]
             datasetT0 = self.compute_dataset_time(timeInterval[0],
                                                   [exporters[key] for key in sensors])
+            try:
+                os.makedirs(os.path.join(self.exportPath, setName))
+            except:
+                pass
+            copyfile(self.exportPlanFilename,
+                     os.path.join(self.exportPath, setName,
+                                  os.path.split(self.exportPlanFilename)[1]))
             for sensor in sensors:
                 outputPath = os.path.join(self.exportPath, setName, sensor)
                 exporters[sensor].export(timeInterval, datasetT0, outputPath)
@@ -125,6 +133,7 @@ class DataCleaner2:
 
         for sensor in self.sensors:
             self.sensorData[sensor].minTime = self.minTime
+        self.robotPoseData.minTime = self.minTime
 
     def compute_dataset_time(self, t0, exporters):
         
@@ -187,5 +196,13 @@ class DataCleaner2:
         axes[2].set_ylabel("GPS sigma (cm)")
         axes[2].grid()
         add_twiny(axes[2], time_span, label="Mission time (s)")
+
+        fig, axes = plt.subplots(1,1, sharex=True, sharey=False)
+        axes.plot(np.array(data.robot_to_world_pose_curvilinear_abs), label="Curvilinear abs")
+        axes.legend(loc="upper right")
+        axes.set_xlabel("Scan number")
+        axes.set_ylabel("Curvilinear Abs (m)")
+        axes.grid()
+        add_twiny(axes, time_span, label="Mission time (s)")
 
         plt.show(block=False)

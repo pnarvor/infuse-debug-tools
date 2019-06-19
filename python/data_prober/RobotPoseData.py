@@ -12,6 +12,7 @@ from scipy.signal import convolve
 
 from .Utils    import InfuseTransform
 from .Utils    import spike_detector
+from .Utils    import add_twiny
 from .Metadata import Metadata
 
 def find_urdf(filenameHint):
@@ -38,7 +39,11 @@ def compute_curvilinear_abscisse(poseList):
     abscisse = [0.0]
     lastPose = poseList[0]
     lastAbs = 0.0
+    # for index, pose in enumerate(poseList[1:]):
     for pose in poseList[1:]:
+        # if index+1 in posesToIgnore:
+        #     abscisse.append(lastAbs)
+        #     continue
         lastAbs = lastAbs + np.linalg.norm(pose.translation - lastPose.translation)
         abscisse.append(lastAbs)
         lastPose = pose
@@ -190,6 +195,12 @@ class RobotPoseData:
         self.odoFrameToGTF = InfuseTransform(translation, orientation)
 
     def load_gps_poses(self):
+
+        gpsToRemove = []
+        for index, solStatus in enumerate(self.dataGps.solution_status):
+            if 'INSUFFICIENT_OBS' in solStatus:
+                gpsToRemove.append(index)
+        self.dataGps.remove_data_lines(gpsToRemove)
 
         self.gpsPoses = []
         gpsTr = []
@@ -427,11 +438,17 @@ class RobotPoseData:
         axes[0].set_aspect('equal')
         axes[0].grid()
         axes[0].set_title("RobotPoseData : All traces (transformed to LocalTerrainFrame")
-        axes[1].plot((np.array(self.dataOdometry.child_time) - self.minTime) / 1000000.0, np.linalg.norm(self.odometryLtfTr, axis=1), '--o', label="Odometry LTF norm", markeredgewidth=0.0)
-        axes[1].plot((np.array(self.dataGps.child_time)      - self.minTime) / 1000000.0, np.linalg.norm(self.robotLtfTr   , axis=1), '--o', label="GPS LTF norm"     , markeredgewidth=0.0)
+        # axes[1].plot((np.array(self.dataOdometry.child_time) - self.minTime) / 1000000.0, np.linalg.norm(self.odometryLtfTr, axis=1), '--o', label="Odometry LTF norm", markeredgewidth=0.0)
+        # axes[1].plot((np.array(self.dataGps.child_time)      - self.minTime) / 1000000.0, np.linalg.norm(self.robotLtfTr   , axis=1), '--o', label="GPS LTF norm"     , markeredgewidth=0.0)
+        # axes[1].legend(loc="upper right")
+        # axes[1].set_xlabel("Mission time (s)")
+        # axes[1].set_ylabel("Distance to position0, (m)")
+        # axes[1].grid()
+        axes[1].plot((np.array(self.dataOdometry.child_time) - self.minTime) / 1000000.0, self.odometryCurveAbs, '--o', label="Odometry curv abs", markeredgewidth=0.0)
+        axes[1].plot((np.array(self.dataGps.child_time) - self.minTime) / 1000000.0, self.robotPoseCurveAbs, '--o', label="GPS curv abs", markeredgewidth=0.0)
         axes[1].legend(loc="upper right")
         axes[1].set_xlabel("Mission time (s)")
-        axes[1].set_ylabel("Distance to position0, (m)")
+        axes[1].set_ylabel("Curv abscisse (m)")
         axes[1].grid()
 
         plt.show(block=blocking)

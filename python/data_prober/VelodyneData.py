@@ -175,10 +175,10 @@ class VelodyneData:
         nbPoints = spike_detector(self.nbPoints)
         self.suggestedBroken.extend(np.where(nbPoints > np.amax(nbPoints)*self.pointsThreshold)[0].tolist())
 
-        gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
-        self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
-        self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
-        self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
+        # gpsSigma = 100.0*np.array([p.gpsStddev for p in self.robotPoseRetagged])
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,0] > self.maxGpsSigThreshold[0])[0].tolist())
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,1] > self.maxGpsSigThreshold[1])[0].tolist())
+        # self.suggestedBroken.extend(np.where(gpsSigma[:,2] > self.maxGpsSigThreshold[2])[0].tolist())
         
         # sorting and removing dupplicates
         self.suggestedBroken = list(dict.fromkeys(self.suggestedBroken))
