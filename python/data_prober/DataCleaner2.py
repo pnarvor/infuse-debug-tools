@@ -167,6 +167,31 @@ class DataCleaner2:
         for sensor in self.sensors:
             self.sensorData[sensor].display(verbose, blocking)
 
+    def check_camera_exported(self, path):
+        
+        self.navDataTest = Metadata()
+        self.navDataTest.parse_metadata(
+            os.path.join(path, 'nav_cam/dataformat.txt'),
+            os.path.join(path, 'nav_cam/all_metadata.txt'))
+        self.frontDataTest = Metadata()
+        self.frontDataTest.parse_metadata(
+            os.path.join(path, 'front_cam/dataformat.txt'),
+            os.path.join(path, 'front_cam/all_metadata.txt'))
+        self.rearDataTest = Metadata()
+        self.rearDataTest.parse_metadata(
+            os.path.join(path, 'rear_cam/dataformat.txt'),
+            os.path.join(path, 'rear_cam/all_metadata.txt'))
+
+        fig, axes = plt.subplots(1,1)
+        axes.plot(np.array(self.navDataTest.data_time_stamp)   / 1000.0, label="nav")
+        axes.plot(np.array(self.frontDataTest.data_time_stamp) / 1000.0, label="front")
+        axes.plot(np.array(self.rearDataTest.data_time_stamp)  / 1000.0, label="rear")
+        axes.set_xlabel('Image index')
+        axes.set_ylabel('Time (ms)')
+        axes.legend(loc='lower right')
+
+        plt.show(block=False)
+
     def check_velodyne_exported(self, path):
         
         formatFilename = os.path.join(path, 'dataformat.txt')

@@ -45,7 +45,7 @@ from data_prober import DataCleaner2
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_03_18_05_10_raw/raw_data/'
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_04_13_07_22_raw/raw_data/'
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_04_17_04_37_raw/raw_data/'
-dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_05_14_12_30_raw/raw_data/'
+# dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_05_14_12_30_raw/raw_data/'
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_05_17_13_59_raw/raw_data/'
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_07_12_40_13_raw/raw_data/'
 # dataRootDir = '/media/Nephelae-Data/data/M3-mission/minnie2/log_data_acquisition_2018_12_07_14_27_38_raw/raw_data/'

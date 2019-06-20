@@ -135,4 +135,9 @@ def extrinsic_synchro(stamps, tolerance = 75):
             del(stampList[0])
         currentStampIndex = [i + 1 for i in currentStampIndex]
 
+    # Must delete remaining images to have same number of images
+    for index, stampList, delList in zip(currentStampIndex, stamps, toDelete):
+        for i in range(len(stampList)):
+            delList.append(index + i)
+
     return toDelete
